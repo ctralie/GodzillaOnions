@@ -8,6 +8,7 @@ class Canvas2D {
 		this.canvas.selectAll("*").remove();
 		this.points = this.canvas.append("g")
 		.attr("class", "points");
+		this.pointsCoords = []; // A parallel array to make it easy to access the coordinates
 		this.lines = this.canvas.append("g")
 		.attr("class", "lines");
 
@@ -26,14 +27,7 @@ class Canvas2D {
 	  * @return A 2d array of the form [[x1, y1], [x2, y2], ...]
 	  */
 	getPoints() {
-		let P = [];
-		d3.selectAll("circle").each(function() {
-			let sel = d3.select(this);
-			const x = parseFloat(sel.attr("cx"));
-			const y = parseFloat(sel.attr("cy"))
-			P.push([x, y]);
-		});
-		return P;
+		return this.pointsCoords;
 	}
 
 	/**
@@ -69,6 +63,7 @@ class Canvas2D {
 		this.points.remove();
 		this.points = this.canvas.append("g")
 		.attr("class", "points");
+		this.pointsCoords = [];
 	}
 
 	/**
@@ -93,6 +88,7 @@ class Canvas2D {
 	mouseDown() {
 		if (!this.frozen) {
 			let point = d3.mouse(d3.event.currentTarget);
+			this.pointsCoords.push(point);
 			this.points.append("circle")
 				.attr("r", 5)
 				.attr("fill", d3.rgb(0, 0, 0))

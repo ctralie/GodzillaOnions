@@ -39,11 +39,13 @@ function getOnions(Ps) {
         let PsSub = Ps.filter((_, i) => !layerSet.has(i));
         // Recompute the convex hull
         hull = PsSub;
-        if (PsSub.length > 3) {
+        if (PsSub.length >= 3) {
             hull = d3.polygonHull(PsSub);
         }
         layer = getSubsetIdxs(Ps, hull);
-        layers.push(layer);
+        if (layer.length > 0) {
+            layers.push(layer);
+        }
     }
     return layers;
 }
@@ -122,7 +124,8 @@ class OnionsAnimation {
         this.layers = [];
     }
 
-    drawOnions() {
+    makeOnions() {
+        // Step 1: Setup the onion layers
         this.canvas.freeze();
         let layersIdxs = getOnions(this.canvas.getPoints());
         this.layers = [];
@@ -131,6 +134,16 @@ class OnionsAnimation {
             let layer = new OnionLayer(this.canvas, i, layersIdxs.length, Ps, layersIdxs[i]);
             this.layers.push(layer);
         }
+
+        // Step 2: Setup the M layers from the inside out
+        // @attribute {list of (OnionLayer pointer, int)} M
+        if (this.layers.length > 0) {
+            const inner = this.layers[this.layers.length-1];
+            let M = inner.L.map((_, i)=>[inner, i]);
+            console.log(inner.L);
+            console.log(M);
+        }
+
     }
 
     clear() {

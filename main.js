@@ -13,6 +13,6 @@ function clearPoints() {
     canvas.unfreeze();
 }
 
-function computeHull() {
-    onionsAnim.drawOnions();
+function makeOnions() {
+    onionsAnim.makeOnions();
 }
