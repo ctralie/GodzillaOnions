@@ -1,3 +1,26 @@
+//////////////////////////////////////////////////////////
+//////////////   Animation Utilities  ////////////////////
+//////////////////////////////////////////////////////////
+function nextButton() {
+    return new Promise(resolve => {
+        const button = document.getElementById("onionsButton");
+        button.addEventListener("click", function(e) {
+            resolve();
+        }, {"once":true});
+    })
+}
+
+function updateInfo(s) {
+    const info = document.getElementById("info");
+    info.innerHTML = s;
+}
+
+
+
+//////////////////////////////////////////////////////////
+//////////////   Geometry Utilities   ////////////////////
+//////////////////////////////////////////////////////////
+
 /**
  * Find the indices of subset in the list Ps
  * 
@@ -50,6 +73,12 @@ function getOnions(Ps) {
     return layers;
 }
 
+
+
+//////////////////////////////////////////////////////////
+//////////////       Onions Code      ////////////////////
+//////////////////////////////////////////////////////////
+
 class OnionLayer {
     /**
      * @param {Canvas2D} canvas Canvas to which to draw points/lines
@@ -96,13 +125,20 @@ class OnionLayer {
         this.MCanvas.remove();
         this.initPointsLines();
     }
+    
+    /**
+     * Get the color for this layer
+     * @returns rgb(int, int, int)
+     */
+    getColor() {
+        return this.colorInterpolator((this.idx+1)/this.N);
+    }
 
     /**
      * Draw the points and lines for this layer
      */
     drawL() {
-        const color = d3.rgb(this.colorInterpolator((this.idx+1)/(this.N)));
-        
+        const color = d3.rgb(this.getColor());
         for (let i = 0; i < this.L.length; i++) {
             const point = this.Ps[this.L[i]];
             const drawnPoint = this.LCanvas.append("circle")
@@ -181,8 +217,10 @@ class OnionsAnimation {
         this.layers = [];
     }
 
-    makeOnions() {
+    async makeOnions() {
         // Step 1: Setup the onion layers
+        updateInfo("Okay let's do it!  The first step is to compute each layer of the onion by computing the convex hulls from the outside to the inside.");
+        await nextButton();
         this.canvas.freeze();
         let layersIdxs = getOnions(this.canvas.getPoints());
         this.layers = [];
@@ -190,9 +228,14 @@ class OnionsAnimation {
         for (let i = 0; i < layersIdxs.length; i++) {
             let layer = new OnionLayer(this.canvas, i, layersIdxs.length, Ps, layersIdxs[i]);
             this.layers.push(layer);
+            let info = "Here's layer <b><span style=\"color:" + layer.getColor() + "\">";
+            info += "L<SUB>" + i + "<SUB></span></b>";
+            updateInfo(info);
+            await nextButton();
         }
 
         // Step 2: Setup the M layers from the inside out
+        updateInfo("Now we need to compute the \"helper layers\" <b>M<SUB>i</SUB></b> for each layer.  This is where <a href = \"https://en.wikipedia.org/wiki/Fractional_cascading\">fractional cascading</a> comes in; each helper layer <b>M<SUB>i</SUB></b> will be a merging of the layer <b>L<SUB>i</b> and <i>every other element</i> of <b>M<SUB>i-1</SUB></b>, sorted by slope");
         if (this.layers.length > 0) {
             let idx = this.layers.length-1;
             const inner = this.layers[idx];
