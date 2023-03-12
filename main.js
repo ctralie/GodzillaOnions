@@ -1,5 +1,6 @@
 let canvas = new Canvas2D();
 let onionsAnim = new OnionsAnimation(canvas);
+const info = document.getElementById("info");
 
 function selectPoints() {
     canvas.unfreeze();

@@ -6,12 +6,8 @@ class Canvas2D {
 
 		// Clear all graph elements if any exist
 		this.canvas.selectAll("*").remove();
-		this.points = this.canvas.append("g")
-		.attr("class", "points");
-		this.pointsCoords = []; // A parallel array to make it easy to access the coordinates
-		this.lines = this.canvas.append("g")
-		.attr("class", "lines");
-
+		this.linesPointsCollection = this.canvas.append("g").attr("class", "UserSelection");
+		this.points = []; // An array of selected points
 		this.frozen = false;
 
 		this.canvas.call(d3.zoom()
@@ -27,7 +23,7 @@ class Canvas2D {
 	  * @return A 2d array of the form [[x1, y1], [x2, y2], ...]
 	  */
 	getPoints() {
-		return this.pointsCoords;
+		return this.points;
 	}
 
 	/**
@@ -46,33 +42,19 @@ class Canvas2D {
 		if (width === undefined) {
 			width = 2;
 		}
-		this.lines.append("line")
-		.attr("x1", x1)
-		.attr("y1", y1)
-		.attr("x2", x2)
-		.attr("y2", y2)
+		this.linesPointsCollection.append("line")
+		.attr("x1", x1).attr("y1", y1).attr("x2", x2).attr("y2", y2)
 		.attr("stroke", d3.rgb(color[0], color[1], color[2]))
 		.attr("stroke-width", width);
 		
 	}
 
 	/**
-	 * Remove all of the points from the canvas
+	 * Remove all of the points and lines from the canvas
 	 */
-	clearPoints() {
-		this.points.remove();
-		this.points = this.canvas.append("g")
-		.attr("class", "points");
-		this.pointsCoords = [];
-	}
-
-	/**
-	 * Remove all of the line segments from the canvas
-	 */
-	clearLines() {
-		this.lines.remove();
-		this.lines = this.canvas.append("g")
-		.attr("class", "lines");
+	clear() {
+		this.linesPointsCollection = this.canvas.append("g").attr("class", "UserSelection");
+		this.points = [];
 	}
 
 	/**
@@ -88,15 +70,12 @@ class Canvas2D {
 	mouseDown() {
 		if (!this.frozen) {
 			let point = d3.mouse(d3.event.currentTarget);
-			this.pointsCoords.push(point);
-			this.points.append("circle")
+			this.points.push(point);
+			this.linesPointsCollection.append("circle")
 				.attr("r", 5)
 				.attr("fill", d3.rgb(0, 0, 0))
-				.attr("cx", point[0])
-				.attr("cy", point[1])
-				.call(d3.drag()
-				.on("drag", this.dragNode)
-				)
+				.attr("cx", point[0]).attr("cy", point[1])
+				.call(d3.drag().on("drag", this.dragNode))
 				.on("dblclick", this.removeNode)
 		}
 	}
