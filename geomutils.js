@@ -1,3 +1,5 @@
+const DEFAULT_STROKE_WIDTH = 1;
+
 //////////////////////////////////////////////////////////
 //////////////   Animation Utilities  ////////////////////
 //////////////////////////////////////////////////////////
@@ -96,14 +98,13 @@ function getOnions(Ps) {
  * @param {svg element} drawArea The area to which to draw this M
  */
 function drawM(layer, M, drawArea) {
-    const colorInterpolator = layer.colorInterpolator;
     const Ps = layer.Ps;
     const N = layer.N;
     for (let i = 0; i < M.length; i++) {
         const layer = M[i][0][0];
         const idx = M[i][0][1];
         let point = Ps[layer.L[idx]];
-        const color = d3.rgb(colorInterpolator((layer.idx+1)/N));
+        const color = d3.rgb(layer.getColor());
         drawArea.append("circle")
         .attr("r", 5).attr("fill", color)
         .attr("cx", point[0]).attr("cy", point[1]);
@@ -114,11 +115,11 @@ function drawM(layer, M, drawArea) {
         const idx = M[i][0][1];
         const P1 = Ps[layer.L[idx]];
         const P2 = Ps[(layer.L[(idx+1)%layer.L.length])];
-        const color = d3.rgb(colorInterpolator((layer.idx+1)/N));
+        const color = d3.rgb(layer.getColor());
         drawArea.append("line")
         .attr("x1", P1[0]).attr("y1", P1[1])
         .attr("x2", P2[0]).attr("y2", P2[1])
-        .attr("stroke", color).attr("stroke-width", 1);
+        .attr("stroke", color).attr("stroke-width", DEFAULT_STROKE_WIDTH);
     }
 }
 
@@ -193,7 +194,7 @@ class OnionLayer {
             const drawnLine = this.LCanvas.append("line")
             .attr("x1", P1[0]).attr("y1", P1[1])
             .attr("x2", P2[0]).attr("y2", P2[1])
-            .attr("stroke", color).attr("stroke-width", 1);
+            .attr("stroke", color).attr("stroke-width", DEFAULT_STROKE_WIDTH);
         }
     }
 
@@ -212,21 +213,18 @@ class OnionLayer {
     }
 }
 
-/**
- * Merge every other element of an M list with the 
- * elements of an L list, sorted by slope
- * @param {[[OnionLayer, int], int, int]} M M of the last layer
- * @param {list of int} L Indices into Ps of a layer
- * @param {list of [x, y]} Ps Coordinates of points
- */
-function mergeBySlope(M, L, Ps) {
-    // Step 1: Replace M with every other element of M
-    M = M.filter((_, i) => i%2 == 0);
 
-    M = this.layers[idx].L.map((_, i)=>[[this.layers[idx], i], i, 0]);
-    for (let k = 0; k < lastM.length; k += 2) {
-        M.push([lastM[k][0], M.length, k]);
-    }
+/**
+ * Do a binary search to quickly find the greatest 
+ * slope that's <= slope
+ * @param {[[OnionLayer, int], int, int]} M
+                * [OnionLayer, int]: The layer and index that this point actually comes from
+                * int: The index in this M of searching for the point
+                * int: The index in M+1 of searching for the point
+ * @param {float} slope The slope we're searching for
+ */
+function binarySearch(M, slope) {
+    
 
 }
 
@@ -305,38 +303,74 @@ class OnionsAnimation {
                 }
                 info += ", we create ";
                 info += "<b><span style=\"color:" + this.layers[idx].getColor() + "\">M<SUB>" + idx + "<SUB></span></b> ";
-                info += "by taking all of the points in "
+                info += "by merging all of the points in "
                 info += "<b><span style=\"color:" + this.layers[idx].getColor() + "\">L<SUB>" + idx + "<SUB></span></b>.";
                 info += " and every other point from "
-                info += "<b><span style=\"color:" + this.layers[idx+1].getColor() + "\">M<SUB>" + (idx+1) + "<SUB></span></b>.";
+                info += "<b><span style=\"color:" + this.layers[idx+1].getColor() + "\">M<SUB>" + (idx+1) + "<SUB></span></b>";
+                info += " in sorted order <i>by slope</i> to allow quick lookup later with binary search.";
                 updateInfo(info);
+                // Bold M_{i+1} and L_i to show they're about to be active
+                this.layers[idx].LCanvas.selectAll("line").attr("stroke-width", 4);
+                this.layers[idx+1].MCanvas.selectAll("line").attr("stroke-width", 4);
                 await nextButton(); if(this.finished) {return;}
 
-                /*
-                * @param {[[OnionLayer, int], int, int]} M
-                * [OnionLayer, int]: The layer and index that this point actually comes from
-                * int: The index in this M of searching for the point
-                * int: The index in M+1 of searching for the point
-                */
 
-                // Take every other element from lastM and merge with
-                // the points at this layer.  Then sort by slope
-                M = this.layers[idx].L.map((_, i)=>[[this.layers[idx], i], i, 0]);
+
+                // Take every other element from M_{i+1} and merge with L_i
+                let M = this.layers[idx].L.map((_, i)=>[[this.layers[idx], i], i, 0]);
                 for (let k = 0; k < lastM.length; k += 2) {
                     M.push([lastM[k][0], M.length, k]);
                 }
+                // Now sort by slope
+                M = M.map(v => {
+                    let ret = {"v":v};
+                    const layer = v[0][0];
+                    const idx = v[0][1];
+                    const P1 = Ps[layer.L[idx]];
+                    const P2 = Ps[(layer.L[(idx+1)%layer.L.length])];
+                    let diff = [P2[0]-P1[0], P2[1]-P1[1]];
+                    ret.slope = Math.atan2(diff[1], diff[0]);
+                    return ret;
+                });
+                M.sort((a, b)=> a.slope - b.slope);
+                M = M.map(v => v.v);
+                // TODO: Update indices into L_i and M_{i+1}
                 
+                // Show each sorted line segment flying over one by one
                 let tempCanvas = this.clearTempCanvas();
-                drawM(this.layers[idx], M, tempCanvas);
+                for (let k = 0; k < M.length; k++) {
+                    let drawArea = tempCanvas.append("g");
 
-                tempCanvas.transition().duration(moveTime)
-                .attr("transform", "translate(" + this.canvas.width/2 + ",0)");
+                    const layer = M[k][0][0];
+                    const idx = M[k][0][1];
+                    const P1 = Ps[layer.L[idx]];
+                    const P2 = Ps[(layer.L[(idx+1)%layer.L.length])];
+                    let color = d3.rgb(layer.getColor());
+
+                    drawArea.append("circle")
+                    .attr("r", 5).attr("fill", color)
+                    .attr("cx", P1[0]).attr("cy", P1[1]);
+
+                    drawArea.append("line")
+                    .attr("x1", P1[0]).attr("y1", P1[1])
+                    .attr("x2", P2[0]).attr("y2", P2[1])
+                    .attr("stroke", color).attr("stroke-width", DEFAULT_STROKE_WIDTH);
+
+                    drawArea.transition().duration(moveTime/2)
+                    .attr("transform", "translate(" + this.canvas.width/2 + ",0)");
+                    await new Promise(resolve => {setTimeout(() => resolve(), moveTime/2)});
+
+                }
                 await nextButton(); if(this.finished) {return;}
                 tempCanvas.transition().duration(moveTime)
-                .attr("transform", "translate(0,0)");
+                .attr("transform", "translate("+-this.canvas.width/2 + ",0)");
                 await new Promise(resolve => {setTimeout(() => resolve(), moveTime)});
                 tempCanvas.remove();
-                await nextButton(); if(this.finished) {return;}
+
+                this.layers[idx].setM(M);
+                // Unbold Li and M_{i+1}
+                this.layers[idx].LCanvas.selectAll("line").attr("stroke-width", DEFAULT_STROKE_WIDTH);
+                this.layers[idx+1].MCanvas.selectAll("line").attr("stroke-width", DEFAULT_STROKE_WIDTH);
 
                 lastM = M;
             }
