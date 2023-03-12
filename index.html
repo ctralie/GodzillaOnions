@@ -1,0 +1,85 @@
+<html>
+    <style>
+        .slidecontainer {
+          width: 100%;
+        }
+        
+        .slider {
+          -webkit-appearance: none;
+          width: 90%;
+          height: 25px;
+          background: #858484;
+          outline: #070000;
+          opacity: 0.7;
+          -webkit-transition: .5s;
+          transition: opacity .5s;
+        }
+        
+        .slider:hover {
+          opacity: 1;
+        }
+        
+        .slider::-webkit-slider-thumb {
+          -webkit-appearance: none;
+          appearance: none;
+          width: 50px;
+          height: 50px;
+          border-radius: 50%;
+          background: #aa0404;
+          cursor: pointer;
+          
+        }
+        
+        .slider::-moz-range-thumb {
+          width: 25px;
+          height: 25px;
+          border-radius: 50%;
+          background: #04AA6D;
+          cursor: pointer;
+        }
+
+        </style>
+    <head>
+        <script src="jslibs/d3.min.js"></script>
+        <script src="jslibs/d3-polygon.min.js"></script>
+        <script src="geomutils.js"></script>
+        <script src="canvas.js"></script>
+    </head>
+
+    <body>
+        <h1>Godzilla Onions</h1>
+
+        <p>
+          <b>Directions:</b>
+        </p>
+        <button type="button" onclick = "selectPoints()">Select Points</button> 
+        <button type="button" onclick = "clearPoints()">Clear points</button>
+        <button type="button" onclick = "computeHull()">Compute Onions</button> 
+
+        <div class="slidecontainer">
+          
+            <h3><p id="animationlabel">Animation Slider</p></h3>
+          
+          <input type="range" min="0" max="8" value= "0" class="slider" id="myRange">
+          <p><span id="num"></span></p>
+      </div>
+
+        <div id = "Canvas2DContainer" >
+            <svg id="Canvas2D" width = "90%" height = "80%" style="border-style: dotted;"></svg>
+        </div>
+
+        <div
+        style="
+            top: 99;
+            left: 85;
+            top: 70%;
+            left: 40%;
+            font-size: 36px;
+            position: absolute;
+            z-index: 1;
+            visibility: show;">
+        </div>
+
+        <script src="main.js"></script>
+    </body>
+</html>
