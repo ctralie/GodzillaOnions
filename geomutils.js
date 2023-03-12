@@ -1,12 +1,22 @@
 //////////////////////////////////////////////////////////
 //////////////   Animation Utilities  ////////////////////
 //////////////////////////////////////////////////////////
+
+/**
+ * If any of the buttons are pressed, we unblock the blocked code
+ * in the animation.  It either continues to the next step, or it
+ * returns from the method early if it's finished
+ * @returns Promise waiting for a button press
+ */
 function nextButton() {
     return new Promise(resolve => {
-        const button = document.getElementById("onionsButton");
-        button.addEventListener("click", function(e) {
-            resolve();
-        }, {"once":true});
+        let buttons = ["onionsButton", "clearPoints", "selectPoints"];
+        for (let i = 0; i < buttons.length; i++) {
+            const button = document.getElementById(buttons[i]);
+            button.addEventListener("click", function(e) {
+                resolve();
+            }, {"once":true});
+        }
     })
 }
 
@@ -102,6 +112,7 @@ class OnionLayer {
         this.L = L;
         this.initPointsLines();
         this.drawL();
+        this.finished = false;
     }
 
     /**
@@ -119,11 +130,12 @@ class OnionLayer {
 
     /**
      * Clear the SVG structures for points and lines for L and M
+     * and mark this as finished
      */
     clear() {
         this.LCanvas.remove();
         this.MCanvas.remove();
-        this.initPointsLines();
+        this.finished = true;
     }
     
     /**
@@ -215,13 +227,14 @@ class OnionsAnimation {
     constructor(canvas) {
         this.canvas = canvas;
         this.layers = [];
+        this.finished = false;
     }
 
     async makeOnions() {
         // Step 1: Setup the onion layers
-        updateInfo("Okay let's do it!  The first step is to compute each layer of the onion by computing the convex hulls from the outside to the inside.");
-        await nextButton();
         this.canvas.freeze();
+        updateInfo("Okay let's do it!  The first step is to compute each layer of the onion by computing the convex hulls from the outside to the inside.");
+        await nextButton(); if(this.finished) {return;}
         let layersIdxs = getOnions(this.canvas.getPoints());
         this.layers = [];
         let Ps = this.canvas.getPoints();
@@ -231,7 +244,7 @@ class OnionsAnimation {
             let info = "Here's layer <b><span style=\"color:" + layer.getColor() + "\">";
             info += "L<SUB>" + i + "<SUB></span></b>";
             updateInfo(info);
-            await nextButton();
+            await nextButton(); if(this.finished) {return;}
         }
 
         // Step 2: Setup the M layers from the inside out
@@ -250,7 +263,11 @@ class OnionsAnimation {
 
     }
 
+    /**
+     * Clear all of the data and set this to be finished
+     */
     clear() {
+        this.finished = true;
         for (let i = 0; i < this.layers.length; i++) {
             this.layers[i].clear();
         }

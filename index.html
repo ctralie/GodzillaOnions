@@ -52,27 +52,17 @@
         <p>
           <b>Directions:</b>
         </p>
-        <button type="button" onclick = "selectPoints()">Select Points</button> 
-        <button type="button" onclick = "clearPoints()">Clear points</button>
-        <button type="button" onclick = "makeOnions()" id="onionsButton">Compute Onions</button> 
+        <button type="button" onclick = "selectPoints()" id="selectPoints">Select Points</button> 
+        <button type="button" onclick = "clearPoints()" id="clearPoints">Clear points</button>
+        <button type="button" id="onionsButton">Compute Onions</button> 
         <p>
         </p>
-        <div id="info">Select some points to get started!</div>
+        <div id="info"></div>
         <p></p>
-        <!--
-        <div class="slidecontainer">
-          
-            <h3><p id="animationlabel">Animation Slider</p></h3>
-          
-          <input type="range" min="0" max="8" value= "0" class="slider" id="myRange">
-          <p><span id="num"></span></p>
-          !-->
 
       </div>
 
-        <div id = "Canvas2DContainer" >
-            <svg id="Canvas2D" width = "90%" height = "80%" style="border-style: dotted;"></svg>
-        </div>
+        <div id = "Canvas2DContainer"></div>
 
         <div
         style="

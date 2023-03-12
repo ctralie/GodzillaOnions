@@ -1,14 +1,22 @@
 class Canvas2D {
 	constructor() {
-		this.container = document.getElementById("Canvas2DContainer");
-		this.canvas = d3.select("#Canvas2D");
+		const container = document.getElementById("Canvas2DContainer");
+		// Fix the width and height up front
+		this.width = window.innerWidth * 0.9;
+		this.height = window.innerHeight * 0.7;
+		document.getElementById("info").width = this.width;
+		this.container = container;
+		this.canvas = d3.select("#Canvas2DContainer")
+		.append("svg")
+		.attr("width", this.width)
+		.attr("height", this.height)
+		.attr("style", "border-style: dotted;");
 		this.canvas.on("mousedown", this.mouseDown.bind(this));
 
 		// Clear all graph elements if any exist
 		this.canvas.selectAll("*").remove();
-		this.linesPointsCollection = this.canvas.append("g").attr("class", "UserSelection");
-		this.points = []; // An array of selected points
 		this.frozen = false;
+		this.clear();
 
 		this.canvas.call(d3.zoom()
 			.scaleExtent([1/4, 8])
@@ -53,8 +61,14 @@ class Canvas2D {
 	 * Remove all of the points and lines from the canvas
 	 */
 	clear() {
+		if (!(this.linesPointsCollection === undefined)) {
+			this.linesPointsCollection.remove();
+		}
 		this.linesPointsCollection = this.canvas.append("g").attr("class", "UserSelection");
 		this.points = [];
+		// Draw vertical line separating the selection area on the left
+		// from the animation area on the right
+		this.drawLine(this.width/2, 0, this.width/2, this.height);
 	}
 
 	/**
@@ -70,13 +84,15 @@ class Canvas2D {
 	mouseDown() {
 		if (!this.frozen) {
 			let point = d3.mouse(d3.event.currentTarget);
-			this.points.push(point);
-			this.linesPointsCollection.append("circle")
-				.attr("r", 5)
-				.attr("fill", d3.rgb(0, 0, 0))
-				.attr("cx", point[0]).attr("cy", point[1])
-				.call(d3.drag().on("drag", this.dragNode))
-				.on("dblclick", this.removeNode)
+			if (point[0] < this.width/2) {
+				this.points.push(point);
+				this.linesPointsCollection.append("circle")
+					.attr("r", 5)
+					.attr("fill", d3.rgb(0, 0, 0))
+					.attr("cx", point[0]).attr("cy", point[1])
+					.call(d3.drag().on("drag", this.dragNode))
+					.on("dblclick", this.removeNode)
+			}
 		}
 	}
 
