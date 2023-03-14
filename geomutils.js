@@ -85,6 +85,27 @@ function getOnions(Ps) {
     return layers;
 }
 
+/**
+ * Return the slope of a point in a particular layer
+ * NOTE: The slope is done in clockwise order instead of 
+ * counterclockwise order since the svg is flipped, but we 
+ * want it to look canonically CCW
+ * 
+ * @param {list of [x, y]} Ps Full list of points
+ * @param {list of int} L List of indices into Ps of points on this layer
+ * @param {int} idx Index of point in this layer
+ * @returns Slope between layer[idx] and layer[(idx+1)%layer length]
+ */
+function getSlope(Ps, L, idx) {
+    const P1 = Ps[L[idx]];
+    const P2 = Ps[(L[(idx+1)%L.length])];
+    let diff = [P1[0]-P2[0], P2[1]-P1[1]];
+    let ret = Math.atan2(diff[1], diff[0]);
+    if (ret < 0) {
+        ret = ret + 2*Math.PI; // Keep in the range [0, 2*pi]
+    }
+    return ret;
+}
 
 
 //////////////////////////////////////////////////////////
@@ -143,7 +164,12 @@ class OnionLayer {
         this.Ps = Ps;
         this.idx = idx;
         this.N = N;
-        this.L = L;
+        // Sort L with getSlope(Ps, L, idx)
+        let LSlopes = L.map((idx, i) => {
+            return {"idx":idx, "slope":getSlope(Ps, L, i)};
+        });
+        LSlopes.sort((a, b)=> a.slope - b.slope);
+        this.L = LSlopes.map(v => v.idx);
         this.initPointsLines();
         this.drawL();
         this.finished = false;
@@ -183,7 +209,7 @@ class OnionLayer {
         const color = d3.rgb(this.getColor());
         for (let i = 0; i < this.L.length; i++) {
             const point = this.Ps[this.L[i]];
-            const drawnPoint = this.LCanvas.append("circle")
+            this.LCanvas.append("circle")
             .attr("r", 5).attr("fill", color)
             .attr("cx", point[0]).attr("cy", point[1]);
         }
@@ -191,7 +217,7 @@ class OnionLayer {
         for (let i = 0; i < this.L.length; i++) {
             const P1 = this.Ps[this.L[i]];
             const P2 = this.Ps[(this.L[(i+1)%this.L.length])];
-            const drawnLine = this.LCanvas.append("line")
+            this.LCanvas.append("line")
             .attr("x1", P1[0]).attr("y1", P1[1])
             .attr("x2", P2[0]).attr("y2", P2[1])
             .attr("stroke", color).attr("stroke-width", DEFAULT_STROKE_WIDTH);
@@ -203,7 +229,7 @@ class OnionLayer {
      * 
      * @param {[[OnionLayer, int], int, int]} M
      * [OnionLayer, int]: The layer and index that this point actually comes from
-     * int: The index in this M of searching for the point
+     * int: The index in this L of searching for the point
      * int: The index in M+1 of searching for the point
      * 
      */
@@ -213,20 +239,30 @@ class OnionLayer {
     }
 }
 
-
 /**
- * Do a binary search to quickly find the greatest 
- * slope that's <= slope
- * @param {[[OnionLayer, int], int, int]} M
-                * [OnionLayer, int]: The layer and index that this point actually comes from
-                * int: The index in this M of searching for the point
-                * int: The index in M+1 of searching for the point
- * @param {float} slope The slope we're searching for
+ * Return the index in a list of numbers of the
+ * greatest number that's <= a target number
+ * 
+ * @param {list} arr A sorted array of numbers
+ * @param {float} target A target number
+ * 
+ * @returns Index of greatest number <= a target number
  */
-function binarySearch(M, slope) {
-    
-
+function binarysearch(arr, target) {
+    low = 0
+    high = arr.length-1;
+    while (low != high) {
+        let mid = Math.floor((low+high)/2);
+        if (arr[mid] < target) {
+            low = mid+1;
+        }
+        else {
+            high = mid; // Could be equal
+        }
+    }
+    return low;
 }
+
 
 class OnionsAnimation {
     /**
@@ -307,34 +343,26 @@ class OnionsAnimation {
                 info += "<b><span style=\"color:" + this.layers[idx].getColor() + "\">L<SUB>" + idx + "<SUB></span></b>.";
                 info += " and every other point from "
                 info += "<b><span style=\"color:" + this.layers[idx+1].getColor() + "\">M<SUB>" + (idx+1) + "<SUB></span></b>";
-                info += " in sorted order <i>by slope</i> to allow quick lookup later with binary search.";
+                info += " in counter-clockwise sorted order <i>by slope</i> to allow quick lookup later with binary search.";
                 updateInfo(info);
                 // Bold M_{i+1} and L_i to show they're about to be active
                 this.layers[idx].LCanvas.selectAll("line").attr("stroke-width", 4);
                 this.layers[idx+1].MCanvas.selectAll("line").attr("stroke-width", 4);
                 await nextButton(); if(this.finished) {return;}
-
-
-
+                
                 // Take every other element from M_{i+1} and merge with L_i
                 let M = this.layers[idx].L.map((_, i)=>[[this.layers[idx], i], i, 0]);
                 for (let k = 0; k < lastM.length; k += 2) {
                     M.push([lastM[k][0], M.length, k]);
                 }
                 // Now sort by slope
-                M = M.map(v => {
-                    let ret = {"v":v};
-                    const layer = v[0][0];
-                    const idx = v[0][1];
-                    const P1 = Ps[layer.L[idx]];
-                    const P2 = Ps[(layer.L[(idx+1)%layer.L.length])];
-                    let diff = [P2[0]-P1[0], P2[1]-P1[1]];
-                    ret.slope = Math.atan2(diff[1], diff[0]);
-                    return ret;
-                });
+                //getSlope(Ps, L, idx)
+                M = M.map(v => {return {"v":v, "slope":getSlope(Ps, v[0][0].L, v[0][1])}});
+                console.log(M);
                 M.sort((a, b)=> a.slope - b.slope);
                 M = M.map(v => v.v);
-                // TODO: Update indices into L_i and M_{i+1}
+                // Update indices into L_i and M_{i+1}
+                
                 
                 // Show each sorted line segment flying over one by one
                 let tempCanvas = this.clearTempCanvas();
