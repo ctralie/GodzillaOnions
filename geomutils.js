@@ -174,7 +174,7 @@ class OnionLayer {
         });
         LSlopes.sort((a, b)=> a.slope - b.slope);
         this.L = LSlopes.map(v => v.idx);
-        this.LSlopes = LSlopes;
+        this.LSlopes = LSlopes.map(v => v.slope);
         this.initPointsLines();
         this.drawL();
         this.finished = false;
@@ -382,7 +382,6 @@ class OnionsAnimation {
                     M[k].MIdx = binarySearch(this.layers[idx+1].MSlopes, MSlopes[k]);
                 }
                 
-                
                 // Show each sorted line segment flying over one by one
                 tempCanvas = this.clearTempCanvas();
                 for (let k = 0; k < M.length; k++) {
@@ -440,9 +439,14 @@ class OnionsAnimation {
             .attr("transform", "translate(" + halfWidth + ",0)");
             await new Promise(resolve => {setTimeout(() => resolve(), moveTime)});
 
-            const nExamples = L0.M.length;//Math.min(4, L0.M.length);
+            const nExamples = Math.min(5, L0.M.length);
             await nextButton(); if(this.finished) {return;}
-            for (let k = 0; k < nExamples; k++) {
+            // Pick a few random points to look at in M0
+            let shuffleIdx = L0.M.map((_, i) => {return {"i":i, "v":Math.random()};});
+            shuffleIdx.sort((a, b) => a.v - b.v);
+            shuffleIdx = shuffleIdx.map(v => v.i);
+            for (let kidx = 0; kidx < nExamples; kidx++) {
+                let k = shuffleIdx[kidx];
                 tempCanvas = this.clearTempCanvas();
                 let drawArea = tempCanvas.append("g");
                 let Mk = L0.M[k];
@@ -494,19 +498,16 @@ class OnionsAnimation {
                 drawArea.append("circle")
                 .attr("r", 5).attr("fill", color)
                 .attr("cx", x3[0]+halfWidth).attr("cy", x3[1]);
-                /*drawArea.append("line")
+                drawArea.append("line")
                 .attr("x1", x3[0]+halfWidth).attr("y1", x3[1])
-                .attr("x3", x32[0]+halfWidth).attr("y2", x32[1])
-                .attr("stroke", color).attr("stroke-width", BOLD_STROKE_WIDTH);*/
+                .attr("x2", x32[0]+halfWidth).attr("y2", x32[1])
+                .attr("stroke", color).attr("stroke-width", BOLD_STROKE_WIDTH);
 
                 await nextButton(); if(this.finished) {return;}
             }
             this.tempCanvas.remove();
+            L0.MCanvas.selectAll("line").attr("stroke-width", DEFAULT_STROKE_WIDTH);
         }
-        L0.MCanvas.selectAll("line").attr("stroke-width", DEFAULT_STROKE_WIDTH);
-
-        
-
     }
 
     /**
