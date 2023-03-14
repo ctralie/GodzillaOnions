@@ -1,4 +1,7 @@
 const DEFAULT_STROKE_WIDTH = 1;
+const SLIGHT_BOLD_STROKE_WIDTH = 4;
+const BOLD_STROKE_WIDTH = 4;
+const EXTRA_BOLD_STROKE_WIDTH = 6;
 
 //////////////////////////////////////////////////////////
 //////////////   Animation Utilities  ////////////////////
@@ -101,9 +104,6 @@ function getSlope(Ps, L, idx) {
     const P2 = Ps[(L[(idx+1)%L.length])];
     let diff = [P1[0]-P2[0], P2[1]-P1[1]];
     let ret = Math.atan2(diff[1], diff[0]);
-    if (ret < 0) {
-        ret = ret + 2*Math.PI; // Keep in the range [0, 2*pi]
-    }
     return ret;
 }
 
@@ -115,15 +115,19 @@ function getSlope(Ps, L, idx) {
 /**
  * A helper method for drawing M layers
  * @param {OnionLayer} layer The L layer this is associated to
- * @param {} M The M layer
+ * @param { {layer:OnionLayer, idx:int, Lidx, Midx} } M
+     * layer: The layer that this point comes from
+     * idx: The index of the point in the layer that it comes from
+     * LIdx: Pointer to the nearest slope index in the L layer associated to this M
+     * MIdx: Pointer to the nearest slope index in the M layer one above this M
  * @param {svg element} drawArea The area to which to draw this M
  */
 function drawM(layer, M, drawArea) {
     const Ps = layer.Ps;
     const N = layer.N;
     for (let i = 0; i < M.length; i++) {
-        const layer = M[i][0][0];
-        const idx = M[i][0][1];
+        const layer = M[i].layer;
+        const idx = M[i].idx;
         let point = Ps[layer.L[idx]];
         const color = d3.rgb(layer.getColor());
         drawArea.append("circle")
@@ -132,8 +136,8 @@ function drawM(layer, M, drawArea) {
     }
 
     for (let i = 0; i < M.length; i++) {
-        const layer = M[i][0][0];
-        const idx = M[i][0][1];
+        const layer = M[i].layer;
+        const idx = M[i].idx;
         const P1 = Ps[layer.L[idx]];
         const P2 = Ps[(layer.L[(idx+1)%layer.L.length])];
         const color = d3.rgb(layer.getColor());
@@ -170,6 +174,7 @@ class OnionLayer {
         });
         LSlopes.sort((a, b)=> a.slope - b.slope);
         this.L = LSlopes.map(v => v.idx);
+        this.LSlopes = LSlopes;
         this.initPointsLines();
         this.drawL();
         this.finished = false;
@@ -227,14 +232,19 @@ class OnionLayer {
     /**
      * Add and draw the corresponding M list for this layer
      * 
-     * @param {[[OnionLayer, int], int, int]} M
-     * [OnionLayer, int]: The layer and index that this point actually comes from
-     * int: The index in this L of searching for the point
-     * int: The index in M+1 of searching for the point
+     * @param { {layer:OnionLayer, idx:int, Lidx, Midx} } M
+     * layer: The layer that this point comes from
+     * idx: The index of the point in the layer that it comes from
+     * LIdx: Pointer to the nearest slope index in the L layer associated to this M
+     * MIdx: Pointer to the nearest slope index in the M layer one above this M
+     * 
+     * @param {list of float} Slopes of each point in M with respect to the following
+     * point in the layer it's a part of
      * 
      */
-    setM(M) {
+    setM(M, MSlopes) {
         this.M = M;
+        this.MSlopes = MSlopes;
         drawM(this, M, this.MCanvas);
     }
 }
@@ -248,7 +258,7 @@ class OnionLayer {
  * 
  * @returns Index of greatest number <= a target number
  */
-function binarysearch(arr, target) {
+function binarySearch(arr, target) {
     low = 0
     high = arr.length-1;
     while (low != high) {
@@ -274,6 +284,7 @@ class OnionsAnimation {
         this.layers = [];
         this.finished = false;
         this.tempCanvas = canvas.canvas.append("g");
+        this.moveTime = 1; // Animation delay
     }
 
     clearTempCanvas() {
@@ -283,7 +294,10 @@ class OnionsAnimation {
     }
 
     async makeOnions() {
-        // Step 1: Setup the onion layers
+        const moveTime = this.moveTime;
+        const halfWidth = this.canvas.width/2;
+        let tempCanvas = this.clearTempCanvas();
+        //////////////// Step 1: Setup the onion layers //////////////// 
         this.canvas.freeze();
         updateInfo("Okay let's do it!  The first step is to compute each layer of the onion by computing the convex hulls from the outside to the inside.");
         await nextButton(); if(this.finished) {return;}
@@ -299,7 +313,7 @@ class OnionsAnimation {
             await nextButton(); if(this.finished) {return;}
         }
 
-        // Step 2: Setup the M layers from the inside out
+        ////////////////  Step 2: Setup the M layers from the inside out //////////////// 
         updateInfo("Now we need to compute the \"helper layers\" <b>M<SUB>i</SUB></b> for each layer.  This is where <a href = \"https://en.wikipedia.org/wiki/Fractional_cascading\">fractional cascading</a> comes in; each helper layer <b>M<SUB>i</SUB></b> will be a merging of the layer <b>L<SUB>i</b> and <i>every other element</i> of <b>M<SUB>i-1</SUB></b>, sorted by slope");
         if (this.layers.length > 0) {
             await nextButton(); if(this.finished) {return;}
@@ -311,22 +325,19 @@ class OnionsAnimation {
             info += "<b><span style=\"color:" + this.layers[idx].getColor() + "\">M<SUB>" + idx + "<SUB></span></b> = ";
             info += "<b><span style=\"color:" + this.layers[idx].getColor() + "\">L<SUB>" + idx + "<SUB></span></b>.";
             updateInfo(info);
-            
-            const moveTime = 1000;
+
             const inner = this.layers[idx];
-            let M = inner.L.map((_, i)=>[[inner, i], i, 0]);
-            this.layers[idx].setM(M);
+            let M = inner.L.map((_, i)=>{return {"layer":inner, "idx":i, "LIdx":i, "MIdx":0};});
+            this.layers[idx].setM(M, inner.LSlopes);
 
             // Pull this M out to look at it
             this.layers[idx].MCanvas.transition().duration(moveTime)
-            .attr("transform", "translate(" + this.canvas.width/2 + ",0)");
+            .attr("transform", "translate(" + halfWidth + ",0)");
             await nextButton(); if(this.finished) {return;}
             // Put this M back
             this.layers[idx].MCanvas.transition().duration(moveTime)
             .attr("transform", "translate(0,0)");
             await new Promise(resolve => {setTimeout(() => resolve(), moveTime)});
-
-            let lastM = M;
             // Setup each subsequent M layer
             while (idx > 0) {
                 idx--;
@@ -346,31 +357,39 @@ class OnionsAnimation {
                 info += " in counter-clockwise sorted order <i>by slope</i> to allow quick lookup later with binary search.";
                 updateInfo(info);
                 // Bold M_{i+1} and L_i to show they're about to be active
-                this.layers[idx].LCanvas.selectAll("line").attr("stroke-width", 4);
-                this.layers[idx+1].MCanvas.selectAll("line").attr("stroke-width", 4);
+                this.layers[idx].LCanvas.selectAll("line").attr("stroke-width", BOLD_STROKE_WIDTH);
+                this.layers[idx+1].MCanvas.selectAll("line").attr("stroke-width", BOLD_STROKE_WIDTH);
                 await nextButton(); if(this.finished) {return;}
                 
                 // Take every other element from M_{i+1} and merge with L_i
-                let M = this.layers[idx].L.map((_, i)=>[[this.layers[idx], i], i, 0]);
-                for (let k = 0; k < lastM.length; k += 2) {
-                    M.push([lastM[k][0], M.length, k]);
+                let M = this.layers[idx].L.map((_, i)=>{return {"layer":this.layers[idx], "idx":i, "LIdx":i, "MIdx":0};});
+                for (let k = 0; k < this.layers[idx+1].M.length; k += 2) {
+                    let data = {};
+                    data.layer = this.layers[idx+1];
+                    data.idx   = this.layers[idx+1].M[k].idx;
+                    data.LIdx = M.length;
+                    data.MIdx = k;
+                    M.push(data);
                 }
                 // Now sort by slope
-                //getSlope(Ps, L, idx)
-                M = M.map(v => {return {"v":v, "slope":getSlope(Ps, v[0][0].L, v[0][1])}});
-                console.log(M);
+                M = M.map(v => {return {"v":v, "slope":getSlope(Ps, v.layer.L, v.idx)}});
                 M.sort((a, b)=> a.slope - b.slope);
+                let MSlopes = M.map(v => v.slope);
                 M = M.map(v => v.v);
                 // Update indices into L_i and M_{i+1}
+                for (let k = 0; k < M.length; k++) {
+                    M[k].LIdx = binarySearch(this.layers[idx].LSlopes,   MSlopes[k]);
+                    M[k].MIdx = binarySearch(this.layers[idx+1].MSlopes, MSlopes[k]);
+                }
                 
                 
                 // Show each sorted line segment flying over one by one
-                let tempCanvas = this.clearTempCanvas();
+                tempCanvas = this.clearTempCanvas();
                 for (let k = 0; k < M.length; k++) {
                     let drawArea = tempCanvas.append("g");
 
-                    const layer = M[k][0][0];
-                    const idx = M[k][0][1];
+                    const layer = M[k].layer;
+                    const idx = M[k].idx;
                     const P1 = Ps[layer.L[idx]];
                     const P2 = Ps[(layer.L[(idx+1)%layer.L.length])];
                     let color = d3.rgb(layer.getColor());
@@ -384,25 +403,109 @@ class OnionsAnimation {
                     .attr("x2", P2[0]).attr("y2", P2[1])
                     .attr("stroke", color).attr("stroke-width", DEFAULT_STROKE_WIDTH);
 
-                    drawArea.transition().duration(moveTime/2)
-                    .attr("transform", "translate(" + this.canvas.width/2 + ",0)");
-                    await new Promise(resolve => {setTimeout(() => resolve(), moveTime/2)});
+                    drawArea.transition().duration(moveTime/4)
+                    .attr("transform", "translate(" + halfWidth + ",0)");
+                    await new Promise(resolve => {setTimeout(() => resolve(), moveTime/4)});
 
                 }
                 await nextButton(); if(this.finished) {return;}
                 tempCanvas.transition().duration(moveTime)
-                .attr("transform", "translate("+-this.canvas.width/2 + ",0)");
+                .attr("transform", "translate("+-halfWidth + ",0)");
                 await new Promise(resolve => {setTimeout(() => resolve(), moveTime)});
                 tempCanvas.remove();
 
-                this.layers[idx].setM(M);
+                this.layers[idx].setM(M, MSlopes);
                 // Unbold Li and M_{i+1}
                 this.layers[idx].LCanvas.selectAll("line").attr("stroke-width", DEFAULT_STROKE_WIDTH);
                 this.layers[idx+1].MCanvas.selectAll("line").attr("stroke-width", DEFAULT_STROKE_WIDTH);
-
-                lastM = M;
             }
         }
+
+        //////////////// Step 3: Show a few examples of pointers //////////////// 
+        if (this.layers.length > 1) {
+            updateInfo("To allow quick searching later, we also store pointers from each point <b>p</b> in <b>M<SUB>i</SUB></b> to the points in <b>L<SUB>i</SUB></b> and <b>M<SUB>i+1</SUB></b> with the greatest slopes less than or equal <b>p</b>.  Click <code>Next step</code> to see a few examples of pointers from points in <b><span style=\"color:" + this.layers[0].getColor() + "\">M<SUB>0<SUB></span></b> to points in <b><span style=\"color:" + this.layers[0].getColor() + "\">L<SUB>0<SUB></span></b> and points in <b><span style=\"color:" + this.layers[1].getColor() + "\">M<SUB>1<SUB></span></b>");
+            await nextButton(); if(this.finished) {return;}
+
+            const L0 = this.layers[0];
+            const L1 = this.layers[1];
+            L0.MCanvas.selectAll("line").attr("stroke-width", SLIGHT_BOLD_STROKE_WIDTH);
+
+            // Fly over L0 and M1
+            // Pull this M out to look at it
+            L0.LCanvas.transition().duration(moveTime)
+            .attr("transform", "translate(" + halfWidth + ",0)");
+            await new Promise(resolve => {setTimeout(() => resolve(), moveTime)});
+            // Put this M back
+            L1.MCanvas.transition().duration(moveTime)
+            .attr("transform", "translate(" + halfWidth + ",0)");
+            await new Promise(resolve => {setTimeout(() => resolve(), moveTime)});
+
+            const nExamples = L0.M.length;//Math.min(4, L0.M.length);
+            await nextButton(); if(this.finished) {return;}
+            for (let k = 0; k < nExamples; k++) {
+                tempCanvas = this.clearTempCanvas();
+                let drawArea = tempCanvas.append("g");
+                let Mk = L0.M[k];
+                let x1 = Ps[Mk.layer.L[Mk.idx]];
+                let x12 = Ps[Mk.layer.L[(Mk.idx+1)%Mk.layer.L.length]];
+                
+                let x2 = Ps[L0.L[Mk.LIdx]];
+                let x22 = Ps[L0.L[(Mk.LIdx+1)%L0.L.length]];
+                
+                let Mk1 = L1.M[Mk.MIdx];
+                let x3 = Ps[Mk1.layer.L[Mk1.idx]];
+                let x32 = Ps[Mk1.layer.L[(Mk1.idx+1)%Mk1.layer.L.length]];
+
+                // Draw dotted lines to show pointers
+                drawArea.append("line")
+                .attr("x1", x1[0]).attr("y1", x1[1])
+                .attr("x2", x2[0]+halfWidth).attr("y2", x2[1])
+                .attr("stroke", d3.rgb(0, 0, 0))
+                .attr("stroke-dasharray", "5,5")
+                .attr("stroke-width", DEFAULT_STROKE_WIDTH);
+
+                drawArea.append("line")
+                .attr("x1", x1[0]).attr("y1", x1[1])
+                .attr("x2", x3[0]+halfWidth).attr("y2", x3[1])
+                .attr("stroke", d3.rgb(0, 0, 0))
+                .attr("stroke-dasharray", "5,5")
+                .attr("stroke-width", DEFAULT_STROKE_WIDTH);
+
+                // Bold slopes that are involved
+                let color = Mk.layer.getColor();
+                drawArea.append("circle")
+                .attr("r", 5).attr("fill", color)
+                .attr("cx", x1[0]).attr("cy", x1[1]);
+                drawArea.append("line")
+                .attr("x1", x1[0]).attr("y1", x1[1])
+                .attr("x2", x12[0]).attr("y2", x12[1])
+                .attr("stroke", color).attr("stroke-width", EXTRA_BOLD_STROKE_WIDTH);
+
+                color = L0.getColor();
+                drawArea.append("circle")
+                .attr("r", 5).attr("fill", color)
+                .attr("cx", x2[0]+halfWidth).attr("cy", x2[1]);
+                drawArea.append("line")
+                .attr("x1", x2[0]+halfWidth).attr("y1", x2[1])
+                .attr("x2", x22[0]+halfWidth).attr("y2", x22[1])
+                .attr("stroke", color).attr("stroke-width", BOLD_STROKE_WIDTH);
+
+                color = Mk1.layer.getColor();
+                drawArea.append("circle")
+                .attr("r", 5).attr("fill", color)
+                .attr("cx", x3[0]+halfWidth).attr("cy", x3[1]);
+                /*drawArea.append("line")
+                .attr("x1", x3[0]+halfWidth).attr("y1", x3[1])
+                .attr("x3", x32[0]+halfWidth).attr("y2", x32[1])
+                .attr("stroke", color).attr("stroke-width", BOLD_STROKE_WIDTH);*/
+
+                await nextButton(); if(this.finished) {return;}
+            }
+            this.tempCanvas.remove();
+        }
+        L0.MCanvas.selectAll("line").attr("stroke-width", DEFAULT_STROKE_WIDTH);
+
+        
 
     }
 
