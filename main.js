@@ -99,3 +99,7 @@ let points = [
       174.56666564941406
     ]
   ];
+console.log(getOnions(points));
+for (let i = 0; i < points.length; i++) {
+  canvas.addPoint(points[i]);
+}

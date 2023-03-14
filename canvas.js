@@ -78,21 +78,25 @@ class Canvas2D {
 		d3.select(this).remove();
 	}
 
+	addPoint(point) {
+		if (point[0] < this.width/2) {
+			this.points.push(point);
+			this.linesPointsCollection.append("circle")
+				.attr("r", 5)
+				.attr("fill", d3.rgb(0, 0, 0))
+				.attr("cx", point[0]).attr("cy", point[1])
+				.call(d3.drag().on("drag", this.dragNode))
+				.on("dblclick", this.removeNode)
+		}
+	}
+
 	/**
 	 * React to a mouse down event by adding a node
 	 */
 	mouseDown() {
 		if (!this.frozen) {
 			let point = d3.mouse(d3.event.currentTarget);
-			if (point[0] < this.width/2) {
-				this.points.push(point);
-				this.linesPointsCollection.append("circle")
-					.attr("r", 5)
-					.attr("fill", d3.rgb(0, 0, 0))
-					.attr("cx", point[0]).attr("cy", point[1])
-					.call(d3.drag().on("drag", this.dragNode))
-					.on("dblclick", this.removeNode)
-			}
+			this.addPoint(point);
 		}
 	}
 

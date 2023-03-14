@@ -66,7 +66,7 @@ function getOnions(Ps) {
     let layer = getSubsetIdxs(Ps, d3.polygonHull(Ps));
     let layers = [layer];
     let layerSet = new Set();
-    while (layer.length > 3) {
+    while (layer.length >= 3) {
         for (let i = 0; i < layer.length; i++) {
             layerSet.add(layer[i]);
         }
