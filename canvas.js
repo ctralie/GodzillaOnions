@@ -17,13 +17,6 @@ class Canvas2D {
 		this.canvas.selectAll("*").remove();
 		this.frozen = false;
 		this.clear();
-
-		this.canvas.call(d3.zoom()
-			.scaleExtent([1/4, 8])
-			.on("zoom", this.zoomed.bind(this))
-			.filter(function () {
-				return d3.event.ctrlKey;
-		}));
 	}
 
 	/**
@@ -31,7 +24,14 @@ class Canvas2D {
 	  * @return A 2d array of the form [[x1, y1], [x2, y2], ...]
 	  */
 	getPoints() {
-		return this.points;
+		let P = [];
+		this.linesPointsCollection.selectAll("circle").each(function() {
+			let sel = d3.select(this);
+			const x = parseFloat(sel.attr("cx"));
+			const y = parseFloat(sel.attr("cy"))
+			P.push([x, y]);
+		});
+		return P;
 	}
 
 	/**
@@ -65,7 +65,6 @@ class Canvas2D {
 			this.linesPointsCollection.remove();
 		}
 		this.linesPointsCollection = this.canvas.append("g").attr("class", "UserSelection");
-		this.points = [];
 		// Draw vertical line separating the selection area on the left
 		// from the animation area on the right
 		this.drawLine(this.width/2, 0, this.width/2, this.height);
@@ -80,7 +79,6 @@ class Canvas2D {
 
 	addPoint(point) {
 		if (point[0] < this.width/2) {
-			this.points.push(point);
 			this.linesPointsCollection.append("circle")
 				.attr("r", 5)
 				.attr("fill", d3.rgb(0, 0, 0))
@@ -105,13 +103,6 @@ class Canvas2D {
 		if (!this.frozen) {
 			d3.select(this).attr("cx", d3.event.x);
 			d3.select(this).attr("cy", d3.event.y);
-		}
-	}
-
-	/** A callback function to handle zooming/panning */
-	zoomed() {
-		if (!this.frozen) {
-			this.points.attr("transform", d3.event.transform);
 		}
 	}
 
