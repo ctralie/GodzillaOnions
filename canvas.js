@@ -35,6 +35,7 @@ class Canvas2D {
 		// Clear all graph elements if any exist
 		this.canvas.selectAll("*").remove();
 		this.frozen = false;
+		this.lineFrozen = false;
 		this.selectingLine = false; // If true, selecting Godzilla line
 		this.clear();
 	}
@@ -71,15 +72,26 @@ class Canvas2D {
 		if (Ps.length == 2) {
 			// Draw a line between the points that goes from one
 			// side of the canvas to the other
-			let P = Ps[0];
-			let dw = Ps[0][0] - Ps[1][0];
-			let dh = Ps[0][1] - Ps[1][1];
+			const a = Ps[0];
+			const b = Ps[1];
+			let vx = b[0] - a[0];
+			let vy = b[1] - a[1];
 			const w = this.width/2;
-			let P2 = [w, P[1]+dh*(w-P[0])/dw];
-			let P1 = [0, P[1]+dh*(-P[0])/dw];
+			let P1 = [0, a[1]+vy*(-a[0])/vx];
+			let P2 = [w, a[1]+vy*(w-a[0])/vx];
+			
 
 			this.godzillaLineCollection.append("line")
 			.attr("x1", P1[0]).attr("y1", P1[1]).attr("x2", P2[0]).attr("y2", P2[1])
+			.attr("stroke", GODZILLA_COLOR)
+			.attr("stroke-width", 2)
+			.attr("stroke-dasharray", "5,5");
+
+			let mag = Math.sqrt(vx*vx + vy*vy);
+			vx = vx*50/mag;
+			vy = vy*50/mag;
+			this.godzillaLineCollection.append("line")
+			.attr("x1", a[0]).attr("y1", a[1]).attr("x2", a[0]-vy).attr("y2", a[1]+vx)
 			.attr("stroke", GODZILLA_COLOR)
 			.attr("stroke-width", 2)
 			.attr("stroke-dasharray", "5,5");
@@ -169,7 +181,7 @@ class Canvas2D {
 	 * React to a mouse down event by adding a node
 	 */
 	mouseDown() {
-		if (!this.frozen || this.selectingLine) {
+		if (!this.frozen || (this.selectingLine && !this.lineFrozen)) {
 			let point = d3.mouse(d3.event.currentTarget);
 			this.addPoint(point);
 		}
@@ -184,9 +196,11 @@ class Canvas2D {
 	}
 
 	dragLineNode() {
-		d3.select(this).attr("cx", d3.event.x);
-		d3.select(this).attr("cy", d3.event.y);
-		this.parentNode.parentNode.parentNode.obj.updateGodzillaLine();
+		if (!this.parentNode.parentNode.parentNode.obj.lineFrozen) {
+			d3.select(this).attr("cx", d3.event.x);
+			d3.select(this).attr("cy", d3.event.y);
+			this.parentNode.parentNode.parentNode.obj.updateGodzillaLine();
+		}
 	}
 
 	/**
@@ -215,5 +229,13 @@ class Canvas2D {
 	 */
 	unfreeze() {
 		this.frozen = false;
+	}
+
+	freezeLineSelection() {
+		this.lineFrozen = true;
+	}
+
+	unfreezeLineSelection() {
+		this.lineFrozen = false;
 	}
 }

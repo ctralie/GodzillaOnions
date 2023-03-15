@@ -1,6 +1,7 @@
 let canvas = new Canvas2D();
 const info = document.getElementById("info");
 let onionsAnim = new OnionsAnimation(canvas);
+const animationButton = document.getElementById("animButton");
 
 function resetDirections() {
     document.getElementById("info").innerHTML = "Select some points in the left box to get started!";
@@ -8,16 +9,38 @@ function resetDirections() {
 
 async function animationStarter() {
     if (canvas.getPoints().length > 0) {
-        const animationButton = document.getElementById("animButton");
         animationButton.innerHTML = "Next step";
+        canvas.freeze();
         await onionsAnim.makeOnions();
         if (onionsAnim.preprocessingFinished) {
             info.innerHTML = "Now that the preprocessing is finished, click two points to select a Godzilla line!";
+            animationButton.innerHTML = "Query Onion";
             canvas.selectingLine = true;
+            canvas.unfreezeLineSelection();
+            animationButton.addEventListener("click", queryStarter, {"once":true});
         }
     }
     else {
-        info.innerHTML = "Need to select some points first!";
+        info.innerHTML = "<b>Need to select some points first!</b>";
+        animationButton.addEventListener("click", animationStarter, {"once":true});
+    }
+}
+
+async function queryStarter() {
+    let Ps = canvas.getGodzillaLine();
+    if (Ps.length == 2) {
+        animationButton.innerHTML = "Next step";
+        canvas.freezeLineSelection();
+        await onionsAnim.query(Ps[0], Ps[1]);
+        info.innerHTML = "Click two points to select another Godzilla line!";
+        animationButton.innerHTML = "Query Onion";
+        canvas.selectingLine = true;
+        canvas.unfreezeLineSelection();
+        animationButton.addEventListener("click", queryStarter, {"once":true});
+    }
+    else {
+        info.innerHTML = "<b>Need to select two points for the Godzilla line!</b>";
+        animationButton.addEventListener("click", queryStarter, {"once":true});
     }
 }
 
@@ -26,8 +49,6 @@ async function animationStarter() {
  */
 function resetOnions() {
     canvas.selectingLine = false;
-    const animationButton = document.getElementById("animButton");
-    animationButton.style.display = "block";
     animationButton.innerHTML = "Compute Onions";
     canvas.clearGodzillaLine();
     onionsAnim.clear();

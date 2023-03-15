@@ -1,5 +1,5 @@
 const DEFAULT_STROKE_WIDTH = 1;
-const SLIGHT_BOLD_STROKE_WIDTH = 4;
+const SLIGHT_BOLD_STROKE_WIDTH = 3;
 const BOLD_STROKE_WIDTH = 4;
 const EXTRA_BOLD_STROKE_WIDTH = 6;
 
@@ -107,6 +107,23 @@ function getSlope(Ps, L, idx) {
     return ret;
 }
 
+/**
+ * Return true if the point p is above line line from P1 to P2,
+ * using the CCW convention for the normal
+ * 
+ * @param {[x, y]} P1 First point on line
+ * @param {[x, y]} P2 Second point on line
+ * @param {[x, y]} p Query point
+ * 
+ * @returns true if p is above P1P2, or false otherwise
+ */
+function isAboveLine(P1, P2, p) {
+    const x = p[0];
+    const y = p[1];
+    const vx = P2[0]-P1[0];
+    const vy = P2[1]-P1[1];
+    return vy*(P1[0]-x) + vx*(y-P1[1]) > 0;
+}
 
 //////////////////////////////////////////////////////////
 //////////////       Onions Code      ////////////////////
@@ -299,12 +316,11 @@ class OnionsAnimation {
         const halfWidth = this.canvas.width/2;
         let tempCanvas = this.clearTempCanvas();
         //////////////// Step 1: Setup the onion layers //////////////// 
-        this.canvas.freeze();
         updateInfo("Okay let's do it!  The first step is to compute each layer of the onion by computing the convex hulls from the outside to the inside.");
         await nextButton(); if(this.finished) {return;}
         let layersIdxs = getOnions(this.canvas.getPoints());
         this.layers = [];
-        let Ps = this.canvas.getPoints();
+        const Ps = this.canvas.getPoints();
         for (let i = 0; i < layersIdxs.length; i++) {
             let layer = new OnionLayer(this.canvas, i, layersIdxs.length, Ps, layersIdxs[i]);
             this.layers.push(layer);
@@ -510,6 +526,50 @@ class OnionsAnimation {
             L0.MCanvas.selectAll("line").attr("stroke-width", DEFAULT_STROKE_WIDTH);
         }
         this.preprocessingFinished = true;
+    }
+
+    /**
+     * Query the onion structure to see which points are above the line ab
+     * @param {list of [x, y]} P1 First point on the line
+     * @param {list of [x, y]} P2 Second point on the line
+     */
+    async query(P1, P2) {
+        const moveTime = this.moveTime;
+        let tempCanvas = this.clearTempCanvas();
+        const Ps = this.canvas.getPoints();
+        let diff = [P1[0]-P2[0], P2[1]-P1[1]];
+        let querySlope = Math.atan2(diff[1], diff[0]);
+        let layerIdx = 0;
+
+        let info = "First, do binary search to find the point on <b><span style=\"color:" + this.layers[0].getColor() + "\">M<SUB>0<SUB></span></b> with a slope closest to the slope of the Godzilla line.  This point or or the two adjacent ot it in in <b><span style=\"color:" + this.layers[0].getColor() + "\">L<SUB>0<SUB></span></b> will contain the point furthest from the Godzilla line";
+        updateInfo(info);
+        let layer = this.layers[layerIdx];
+        // Use binary search to find the closest slope in M0 to querySlope
+        let idx = binarySearch(layer.MSlopes, querySlope);
+        // Check this point and the two on either side of it to see if
+        // there's any point whose layer is above the query line
+        let foundAbove = false;
+        for (let j = -1; j <= 1 && !foundAbove; j++) {
+            let idxj = (idx + j + layer.M.length) % layer.M.length;
+            let lidx = layer.M[idxj].LIdx; // Follow pointer to Li
+            for (let k = -1; k <= 1 && !foundAbove; k++) {
+                let lidxk = (lidx + k + layer.L.length)%layer.L.length;
+                let P = Ps[layer.L[lidxk]];
+                if (isAboveLine(P1, P2, P)) {
+                    foundAbove = true;
+                    idx = idxj;
+                }
+            }
+        }
+        console.log("foundAbove", foundAbove);
+        if (!foundAbove) {
+            updateInfo("No point was found above this line, so no points are above the line, and we're finished!");
+            await nextButton(); if(this.finished) {return;}
+        }
+        else {
+
+            await nextButton(); if(this.finished) {return;}
+        }
     }
 
     /**
