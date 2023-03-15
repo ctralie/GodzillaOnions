@@ -1,3 +1,21 @@
+GODZILLA_COLOR = d3.rgb(0, 180, 50);
+
+/**
+ * Extract the points from an SVG collection
+ * @param {svg element} svgCollection 
+ * @return A 2d array of the form [[x1, y1], [x2, y2], ...] 
+ */
+function getSVGPoints(svgCollection) {
+	let P = [];
+	svgCollection.selectAll("circle").each(function() {
+		let sel = d3.select(this);
+		const x = parseFloat(sel.attr("cx"));
+		const y = parseFloat(sel.attr("cy"))
+		P.push([x, y]);
+	});
+	return P;
+}
+
 class Canvas2D {
 	constructor() {
 		const container = document.getElementById("Canvas2DContainer");
@@ -12,10 +30,12 @@ class Canvas2D {
 		.attr("height", this.height)
 		.attr("style", "border-style: dotted;");
 		this.canvas.on("mousedown", this.mouseDown.bind(this));
+		this.container.obj = this;
 
 		// Clear all graph elements if any exist
 		this.canvas.selectAll("*").remove();
 		this.frozen = false;
+		this.selectingLine = false; // If true, selecting Godzilla line
 		this.clear();
 	}
 
@@ -24,14 +44,46 @@ class Canvas2D {
 	  * @return A 2d array of the form [[x1, y1], [x2, y2], ...]
 	  */
 	getPoints() {
-		let P = [];
-		this.linesPointsCollection.selectAll("circle").each(function() {
+		return getSVGPoints(this.linesPointsCollection);
+	}
+
+	/**
+	 * Extract the two points on the Godzilla line
+	 * @return A 2d array of the form [[x1, y1], [x2, y2], ...]
+	 */
+	getGodzillaLine() {
+		return getSVGPoints(this.godzillaLineCollection);
+	}
+
+	clearGodzillaLine() {
+		if (!(this.godzillaLineCollection === undefined)) {
+			this.godzillaLineCollection.remove();
+		}
+		this.godzillaLineCollection = this.canvas.append("g").attr("class", "GodzillaLine");
+	}
+
+	updateGodzillaLine() {
+		let Ps = this.getGodzillaLine();
+		this.godzillaLineCollection.selectAll("line").each(function(){
 			let sel = d3.select(this);
-			const x = parseFloat(sel.attr("cx"));
-			const y = parseFloat(sel.attr("cy"))
-			P.push([x, y]);
+			sel.remove();
 		});
-		return P;
+		if (Ps.length == 2) {
+			// Draw a line between the points that goes from one
+			// side of the canvas to the other
+			let P = Ps[0];
+			let dw = Ps[0][0] - Ps[1][0];
+			let dh = Ps[0][1] - Ps[1][1];
+			const w = this.width/2;
+			let P2 = [w, P[1]+dh*(w-P[0])/dw];
+			let P1 = [0, P[1]+dh*(-P[0])/dw];
+
+			this.godzillaLineCollection.append("line")
+			.attr("x1", P1[0]).attr("y1", P1[1]).attr("x2", P2[0]).attr("y2", P2[1])
+			.attr("stroke", GODZILLA_COLOR)
+			.attr("stroke-width", 2)
+			.attr("stroke-dasharray", "5,5");
+		}
 	}
 
 	/**
@@ -65,6 +117,11 @@ class Canvas2D {
 			this.linesPointsCollection.remove();
 		}
 		this.linesPointsCollection = this.canvas.append("g").attr("class", "UserSelection");
+		if (!(this.godzillaLineCollection === undefined)) {
+			this.godzillaLineCollection.remove();
+		}
+		this.godzillaLineCollection = this.canvas.append("g").attr("class", "GodzillaLine");
+
 		// Draw vertical line separating the selection area on the left
 		// from the animation area on the right
 		this.drawLine(this.width/2, 0, this.width/2, this.height);
@@ -79,12 +136,32 @@ class Canvas2D {
 
 	addPoint(point) {
 		if (point[0] < this.width/2) {
-			this.linesPointsCollection.append("circle")
+			let color = d3.rgb(0, 0, 0);
+			let collection = this.linesPointsCollection;
+			let drag = this.dragNode;
+			if (this.selectingLine) {
+				collection = this.godzillaLineCollection;
+				color = GODZILLA_COLOR;
+				drag = this.dragLineNode;
+			}
+			collection.append("circle")
 				.attr("r", 5)
-				.attr("fill", d3.rgb(0, 0, 0))
+				.attr("fill", color)
 				.attr("cx", point[0]).attr("cy", point[1])
-				.call(d3.drag().on("drag", this.dragNode))
-				.on("dblclick", this.removeNode)
+				.call(d3.drag().on("drag", drag))
+				.on("dblclick", this.removeNode);
+			if (this.selectingLine) {
+				let selection = this.godzillaLineCollection.selectAll("circle");
+				let N = selection.size();
+				if (N > 2) {
+					selection.each(function(x, i) {
+						if (i < N-2) {
+							d3.select(this).remove();
+						}
+					});
+				}
+				this.updateGodzillaLine();
+			}
 		}
 	}
 
@@ -92,7 +169,7 @@ class Canvas2D {
 	 * React to a mouse down event by adding a node
 	 */
 	mouseDown() {
-		if (!this.frozen) {
+		if (!this.frozen || this.selectingLine) {
 			let point = d3.mouse(d3.event.currentTarget);
 			this.addPoint(point);
 		}
@@ -104,6 +181,12 @@ class Canvas2D {
 			d3.select(this).attr("cx", d3.event.x);
 			d3.select(this).attr("cy", d3.event.y);
 		}
+	}
+
+	dragLineNode() {
+		d3.select(this).attr("cx", d3.event.x);
+		d3.select(this).attr("cy", d3.event.y);
+		this.parentNode.parentNode.parentNode.obj.updateGodzillaLine();
 	}
 
 	/**

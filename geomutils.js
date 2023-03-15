@@ -15,7 +15,7 @@ const EXTRA_BOLD_STROKE_WIDTH = 6;
  */
 function nextButton() {
     return new Promise(resolve => {
-        let buttons = ["onionsButton", "clearPoints", "selectPoints"];
+        let buttons = ["animButton", "clearPoints", "selectPoints"];
         for (let i = 0; i < buttons.length; i++) {
             const button = document.getElementById(buttons[i]);
             button.addEventListener("click", function(e) {
@@ -285,6 +285,7 @@ class OnionsAnimation {
         this.finished = false;
         this.tempCanvas = canvas.canvas.append("g");
         this.moveTime = 1; // Animation delay
+        this.preprocessingFinished = false;
     }
 
     clearTempCanvas() {
@@ -508,6 +509,7 @@ class OnionsAnimation {
             this.tempCanvas.remove();
             L0.MCanvas.selectAll("line").attr("stroke-width", DEFAULT_STROKE_WIDTH);
         }
+        this.preprocessingFinished = true;
     }
 
     /**

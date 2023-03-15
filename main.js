@@ -6,11 +6,15 @@ function resetDirections() {
     document.getElementById("info").innerHTML = "Select some points in the left box to get started!";
 }
 
-function animationStarter() {
+async function animationStarter() {
     if (canvas.getPoints().length > 0) {
-        const onions = document.getElementById("onionsButton");
-        onions.innerHTML = "Next step";
-        onionsAnim.makeOnions();
+        const animationButton = document.getElementById("animButton");
+        animationButton.innerHTML = "Next step";
+        await onionsAnim.makeOnions();
+        if (onionsAnim.preprocessingFinished) {
+            info.innerHTML = "Now that the preprocessing is finished, click two points to select a Godzilla line!";
+            canvas.selectingLine = true;
+        }
     }
     else {
         info.innerHTML = "Need to select some points first!";
@@ -21,11 +25,14 @@ function animationStarter() {
  * Clear any onion computation in progress
  */
 function resetOnions() {
-    const onionsButton = document.getElementById("onionsButton");
-    onionsButton.innerHTML = "Compute Onions";
+    canvas.selectingLine = false;
+    const animationButton = document.getElementById("animButton");
+    animationButton.style.display = "block";
+    animationButton.innerHTML = "Compute Onions";
+    canvas.clearGodzillaLine();
     onionsAnim.clear();
     onionsAnim = new OnionsAnimation(canvas);
-    onionsButton.addEventListener("click", animationStarter, {"once":true});
+    animationButton.addEventListener("click", animationStarter, {"once":true});
 }
 
 function selectPoints() {
