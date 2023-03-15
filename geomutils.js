@@ -2,6 +2,8 @@ const DEFAULT_STROKE_WIDTH = 1;
 const SLIGHT_BOLD_STROKE_WIDTH = 3;
 const BOLD_STROKE_WIDTH = 4;
 const EXTRA_BOLD_STROKE_WIDTH = 6;
+const POINT_SIZE = 5;
+const POINT_BOLD_SIZE = 10;
 
 //////////////////////////////////////////////////////////
 //////////////   Animation Utilities  ////////////////////
@@ -148,7 +150,7 @@ function drawM(layer, M, drawArea) {
         let point = Ps[layer.L[idx]];
         const color = d3.rgb(layer.getColor());
         drawArea.append("circle")
-        .attr("r", 5).attr("fill", color)
+        .attr("r", POINT_SIZE).attr("fill", color)
         .attr("cx", point[0]).attr("cy", point[1]);
     }
 
@@ -232,7 +234,7 @@ class OnionLayer {
         for (let i = 0; i < this.L.length; i++) {
             const point = this.Ps[this.L[i]];
             this.LCanvas.append("circle")
-            .attr("r", 5).attr("fill", color)
+            .attr("r", POINT_SIZE).attr("fill", color)
             .attr("cx", point[0]).attr("cy", point[1]);
         }
 
@@ -423,7 +425,7 @@ class OnionsAnimation {
                         let color = d3.rgb(layer.getColor());
     
                         drawArea.append("circle")
-                        .attr("r", 5).attr("fill", color)
+                        .attr("r", POINT_SIZE).attr("fill", color)
                         .attr("cx", P1[0]).attr("cy", P1[1]);
     
                         drawArea.append("line")
@@ -510,7 +512,7 @@ class OnionsAnimation {
                 // Bold slopes that are involved
                 let color = Mk.layer.getColor();
                 drawArea.append("circle")
-                .attr("r", 5).attr("fill", color)
+                .attr("r", POINT_SIZE).attr("fill", color)
                 .attr("cx", x1[0]).attr("cy", x1[1]);
                 drawArea.append("line")
                 .attr("x1", x1[0]).attr("y1", x1[1])
@@ -519,7 +521,7 @@ class OnionsAnimation {
 
                 color = L0.getColor();
                 drawArea.append("circle")
-                .attr("r", 5).attr("fill", color)
+                .attr("r", POINT_SIZE).attr("fill", color)
                 .attr("cx", x2[0]+halfWidth).attr("cy", x2[1]);
                 drawArea.append("line")
                 .attr("x1", x2[0]+halfWidth).attr("y1", x2[1])
@@ -528,7 +530,7 @@ class OnionsAnimation {
 
                 color = Mk1.layer.getColor();
                 drawArea.append("circle")
-                .attr("r", 5).attr("fill", color)
+                .attr("r", POINT_SIZE).attr("fill", color)
                 .attr("cx", x3[0]+halfWidth).attr("cy", x3[1]);
                 drawArea.append("line")
                 .attr("x1", x3[0]+halfWidth).attr("y1", x3[1])
@@ -549,14 +551,14 @@ class OnionsAnimation {
      * @param {list of [x, y]} P2 Second point on the line
      */
     async query(P1, P2) {
-        const moveTime = this.moveTime;
+        let resultCanvas = this.canvas.canvas.append("g"); // Canvas for marking points above line
         let tempCanvas = this.clearTempCanvas();
         const Ps = this.canvas.getPoints();
         let diff = [P1[0]-P2[0], P2[1]-P1[1]];
         let querySlope = Math.atan2(diff[1], diff[0]);
         let layerIdx = 0;
 
-        let info = "First, do binary search to find the point on <b><span style=\"color:" + this.layers[0].getColor() + "\">M<SUB>0<SUB></span></b> with a slope closest to the slope of the Godzilla line.  This point or or the two adjacent ot it in in <b><span style=\"color:" + this.layers[0].getColor() + "\">L<SUB>0<SUB></span></b> will contain the point furthest from the Godzilla line";
+        let info = "First, do binary search to find the point on <b><span style=\"color:" + this.layers[layerIdx].getColor() + "\">M<SUB>0<SUB></span></b> with a slope closest to the slope of the Godzilla line.  This point or or the two adjacent ot it in in <b><span style=\"color:" + this.layers[layerIdx].getColor() + "\">L<SUB>0<SUB></span></b> will contain the point furthest from the Godzilla line";
         updateInfo(info);
         let layer = this.layers[layerIdx];
         // Use binary search to find the closest slope in M0 to querySlope
@@ -576,15 +578,38 @@ class OnionsAnimation {
                 }
             }
         }
-        console.log("foundAbove", foundAbove);
         if (!foundAbove) {
             updateInfo("No point was found above this line, so no points are above the line, and we're finished!");
             await nextButton(); if(this.finished) {return;}
         }
         else {
-
+            // Show the point that was found in M
+            layer = this.layers[layerIdx];
+            tempCanvas = this.clearTempCanvas();
+            let drawArea = tempCanvas.append("g");
+            let Midx = layer.M[idx];
+            let P = Ps[Midx.layer.L[Midx.idx]];
+            drawArea.append("circle")
+            .attr("r", POINT_BOLD_SIZE).attr("fill", Midx.layer.getColor())
+            .attr("cx", P[0]).attr("cy", P[1]);
             await nextButton(); if(this.finished) {return;}
+            updateInfo("Follow the pointer from this point to a point in <b><span style=\"color:" + layer.getColor() + "\">L<SUB>"+layerIdx+"<SUB></span></b>.  This point or one of the two next to it will contain the point furthest from the Godzilla line on " + "<b><span style=\"color:" + layer.getColor() + "\">L<SUB>"+layerIdx+"<SUB></span></b>.");
+
+            for (let k = -1; k <= 1; k++) {
+                let lidxk = (Midx.LIdx + k + layer.L.length)%layer.L.length;
+                let P = Ps[layer.L[lidxk]];
+                if (isAboveLine(P1, P2, P)) {
+                    console.log(k);
+                    drawArea.append("circle")
+                    .attr("r", POINT_BOLD_SIZE).attr("fill", layer.getColor())
+                    .attr("cx", P[0]).attr("cy", P[1]);
+                }
+            }
+            await nextButton(); if(this.finished) {return;}
+
         }
+
+        resultCanvas.remove();
     }
 
     /**

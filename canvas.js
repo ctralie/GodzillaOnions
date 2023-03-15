@@ -86,7 +86,7 @@ class Canvas2D {
 			.attr("stroke", GODZILLA_COLOR)
 			.attr("stroke-width", 2)
 			.attr("stroke-dasharray", "5,5");
-
+			
 			let mag = Math.sqrt(vx*vx + vy*vy);
 			vx = vx*50/mag;
 			vy = vy*50/mag;
