@@ -548,9 +548,19 @@ class OnionsAnimation {
 
                 if (!fastForward) {await nextButton(); if(this.finished) {return;}}
             }
+            if (!fastForward) {
+                // Put L0 and M1 back
+                L0.LCanvas.transition().duration(moveTime)
+                .attr("transform", "translate(0,0)");
+                await new Promise(resolve => {setTimeout(() => resolve(), moveTime)});
+                L1.MCanvas.transition().duration(moveTime)
+                .attr("transform", "translate(0,0)");
+                await new Promise(resolve => {setTimeout(() => resolve(), moveTime)});
+            }
             this.tempCanvas.remove();
             L0.MCanvas.selectAll("line").attr("stroke-width", DEFAULT_STROKE_WIDTH);
         }
+        this.tempCanvas.remove();
         this.preprocessingFinished = true;
     }
 
@@ -661,7 +671,6 @@ class OnionsAnimation {
                         lidxAbove = (start+dir+layer.L.length)%layer.L.length;
                         P = Ps[layer.L[lidxAbove]];
                         isAbove = isAboveLine(P1, P2, P);
-                        console.log("dir = -1, isAbove = ", isAbove);
                     }
                 }
                 
