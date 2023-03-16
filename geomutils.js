@@ -577,7 +577,7 @@ class OnionsAnimation {
         let querySlope = Math.atan2(diff[1], diff[0]);
         let layerIdx = 0;
 
-        let info = "First, do binary search to find the point on <b><span style=\"color:" + this.layers[layerIdx].getColor() + "\">M<SUB>0<SUB></span></b> with a slope closest to the slope of the Godzilla line";
+        let info = "First, do binary search to find the point on <b><span style=\"color:" + this.layers[layerIdx].getColor() + "\">M<SUB>0<SUB></span></b> with a slope closest to the slope of the Godzilla line.  This takes <b>O(log N)</b> time for <b>N</b> overall points in the onion.";
         updateInfo(info);
         let layer = this.layers[layerIdx];
         // Use binary search to find the closest slope in M0 to querySlope
