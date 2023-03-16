@@ -620,7 +620,7 @@ class OnionsAnimation {
                 // Show the associated point in Li as well as the points next to it
                 let info = "Follow the pointer from this point on <b><span style=\"color:" + layer.getColor() + "\">M<SUB>"+layerIdx+"<SUB></span></b> to a point in <b><span style=\"color:" + layer.getColor() + "\">L<SUB>"+layerIdx+"<SUB></span></b>.  Check this point and the point on either side of it on <b><span style=\"color:" + layer.getColor() + "\">L<SUB>"+layerIdx+"<SUB></span></b> to see if they are above the line.";
                 if (layerIdx == 0) {
-                    info += " One of these points will be the furthest from the Godzilla line in teh whole data structure.";
+                    info += " One of these points will be the furthest from the Godzilla line in the whole data structure.";
                 }
                 updateInfo(info);
                 let lidxAbove = Midx.Lidx; // Record at least one of the index that's above the line
