@@ -11,7 +11,7 @@ async function animationStarter() {
     if (canvas.getPoints().length > 0) {
         animationButton.innerHTML = "Next step";
         canvas.freeze();
-        let fastForward = true;
+        let fastForward = false;
         await onionsAnim.makeOnions(fastForward);
         if (onionsAnim.preprocessingFinished) {
             info.innerHTML = "Now that the preprocessing is finished, click two points to select a Godzilla line!";

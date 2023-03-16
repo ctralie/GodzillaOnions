@@ -21,7 +21,7 @@ class Canvas2D {
 		const container = document.getElementById("Canvas2DContainer");
 		// Fix the width and height up front
 		this.width = window.innerWidth * 0.9;
-		this.height = window.innerHeight * 0.7;
+		this.height = window.innerHeight * 0.75;
 		document.getElementById("info").width = this.width;
 		this.container = container;
 		this.canvas = d3.select("#Canvas2DContainer")

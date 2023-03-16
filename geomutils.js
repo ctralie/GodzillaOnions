@@ -303,6 +303,7 @@ class OnionsAnimation {
         this.layers = [];
         this.finished = false;
         this.tempCanvas = canvas.canvas.append("g");
+        this.resultCanvas = canvas.canvas.append("g");
         this.moveTime = 500; // Animation delay
         this.preprocessingFinished = false;
     }
@@ -310,7 +311,15 @@ class OnionsAnimation {
     clearTempCanvas() {
         this.tempCanvas.remove();
         this.tempCanvas = this.canvas.canvas.append("g");
+        this.tempCanvas.attr("class", "tempCanvas");
         return this.tempCanvas;
+    }
+
+    clearResultCanvas() {
+        this.resultCanvas.remove();
+        this.resultCanvas = this.canvas.canvas.append("g");
+        this.resultCanvas.attr("class", "resultCanvas");
+        return this.resultCanvas;
     }
 
     /**
@@ -551,64 +560,148 @@ class OnionsAnimation {
      * @param {list of [x, y]} P2 Second point on the line
      */
     async query(P1, P2) {
-        let resultCanvas = this.canvas.canvas.append("g"); // Canvas for marking points above line
+        let resultCanvas = this.clearResultCanvas(); // Canvas for marking points above line
         let tempCanvas = this.clearTempCanvas();
         const Ps = this.canvas.getPoints();
         let diff = [P1[0]-P2[0], P2[1]-P1[1]];
         let querySlope = Math.atan2(diff[1], diff[0]);
         let layerIdx = 0;
 
-        let info = "First, do binary search to find the point on <b><span style=\"color:" + this.layers[layerIdx].getColor() + "\">M<SUB>0<SUB></span></b> with a slope closest to the slope of the Godzilla line.  This point or or the two adjacent ot it in in <b><span style=\"color:" + this.layers[layerIdx].getColor() + "\">L<SUB>0<SUB></span></b> will contain the point furthest from the Godzilla line";
+        let info = "First, do binary search to find the point on <b><span style=\"color:" + this.layers[layerIdx].getColor() + "\">M<SUB>0<SUB></span></b> with a slope closest to the slope of the Godzilla line";
         updateInfo(info);
         let layer = this.layers[layerIdx];
         // Use binary search to find the closest slope in M0 to querySlope
         let idx = binarySearch(layer.MSlopes, querySlope);
-        // Check this point and the two on either side of it to see if
-        // there's any point whose layer is above the query line
-        let foundAbove = false;
-        for (let j = -1; j <= 1 && !foundAbove; j++) {
-            let idxj = (idx + j + layer.M.length) % layer.M.length;
-            let lidx = layer.M[idxj].LIdx; // Follow pointer to Li
-            for (let k = -1; k <= 1 && !foundAbove; k++) {
-                let lidxk = (lidx + k + layer.L.length)%layer.L.length;
-                let P = Ps[layer.L[lidxk]];
-                if (isAboveLine(P1, P2, P)) {
-                    foundAbove = true;
-                    idx = idxj;
-                }
-            }
-        }
-        if (!foundAbove) {
-            updateInfo("No point was found above this line, so no points are above the line, and we're finished!");
-            await nextButton(); if(this.finished) {return;}
-        }
-        else {
-            // Show the point that was found in M
+
+        while (layerIdx < this.layers.length) {
             layer = this.layers[layerIdx];
-            tempCanvas = this.clearTempCanvas();
-            let drawArea = tempCanvas.append("g");
-            let Midx = layer.M[idx];
-            let P = Ps[Midx.layer.L[Midx.idx]];
-            drawArea.append("circle")
-            .attr("r", POINT_BOLD_SIZE).attr("fill", Midx.layer.getColor())
-            .attr("cx", P[0]).attr("cy", P[1]);
-            await nextButton(); if(this.finished) {return;}
-            updateInfo("Follow the pointer from this point to a point in <b><span style=\"color:" + layer.getColor() + "\">L<SUB>"+layerIdx+"<SUB></span></b>.  This point or one of the two next to it will contain the point furthest from the Godzilla line on " + "<b><span style=\"color:" + layer.getColor() + "\">L<SUB>"+layerIdx+"<SUB></span></b>.");
-
-            for (let k = -1; k <= 1; k++) {
-                let lidxk = (Midx.LIdx + k + layer.L.length)%layer.L.length;
-                let P = Ps[layer.L[lidxk]];
-                if (isAboveLine(P1, P2, P)) {
-                    console.log(k);
-                    drawArea.append("circle")
-                    .attr("r", POINT_BOLD_SIZE).attr("fill", layer.getColor())
-                    .attr("cx", P[0]).attr("cy", P[1]);
+            // Check this point and the two on either side of it to see if
+            // there's any point whose layer is above the query line
+            let foundAbove = false;
+            for (let j = -1; j <= 1 && !foundAbove; j++) {
+                let idxj = (idx + j + layer.M.length) % layer.M.length;
+                let lidx = layer.M[idxj].LIdx; // Follow pointer to Li
+                for (let k = -1; k <= 1 && !foundAbove; k++) {
+                    let lidxk = (lidx + k + layer.L.length)%layer.L.length;
+                    let P = Ps[layer.L[lidxk]];
+                    if (isAboveLine(P1, P2, P)) {
+                        foundAbove = true;
+                        idx = idxj;
+                    }
                 }
             }
-            await nextButton(); if(this.finished) {return;}
+            if (!foundAbove) {
+                updateInfo("No point was found above this line on <b><span style=\"color:" + this.layers[layerIdx].getColor() + "\">M<SUB>"+layerIdx+"<SUB></span></b>, so no points are above the line, and we're finished!");
+                this.clearTempCanvas();
+                await nextButton(); if(this.finished) {return;}
+                layerIdx = this.layers.length; // Do this to break out of the loop
+            }
+            else {
+                // Show the point that was found in Mi
+                layer = this.layers[layerIdx];
+                tempCanvas = this.clearTempCanvas();
+                let drawArea = tempCanvas.append("g");
+                let Midx = layer.M[idx];
+                let P = Ps[Midx.layer.L[Midx.idx]];
+                drawArea.append("circle")
+                .attr("r", POINT_BOLD_SIZE).attr("fill", Midx.layer.getColor())
+                .attr("cx", P[0]).attr("cy", P[1]);
+                await nextButton(); if(this.finished) {return;}
+                // Show the associated point in Li as well as the points next to it
+                let info = "Follow the pointer from this point on <b><span style=\"color:" + layer.getColor() + "\">M<SUB>"+layerIdx+"<SUB></span></b> to a point in <b><span style=\"color:" + layer.getColor() + "\">L<SUB>"+layerIdx+"<SUB></span></b>.  Check this point and the point on either side of it on <b><span style=\"color:" + layer.getColor() + "\">L<SUB>"+layerIdx+"<SUB></span></b> to see if they are above the line.";
+                if (layerIdx == 0) {
+                    info += " One of these points will be the furthest from the Godzilla line in teh whole data structure.";
+                }
+                updateInfo(info);
+                let lidxAbove = Midx.Lidx; // Record at least one of the index that's above the line
+                for (let k = -1; k <= 1; k++) {
+                    let lidxk = (Midx.LIdx + k + layer.L.length)%layer.L.length;
+                    let P = Ps[layer.L[lidxk]];
+                    if (isAboveLine(P1, P2, P)) {
+                        lidxAbove = lidxk;
+                        drawArea.append("circle")
+                        .attr("r", POINT_BOLD_SIZE).attr("fill", layer.getColor())
+                        .attr("cx", P[0]).attr("cy", P[1]);
+                    }
+                }
+                // Show the pointer from the point at Mi to the point on Li
+                let a = Ps[Midx.layer.L[Midx.idx]];
+                let b = Ps[layer.L[Midx.LIdx]];
+                drawArea.append("line")
+                .attr("x1", a[0]).attr("y1", a[1])
+                .attr("x2", b[0]).attr("y2", b[1])
+                .attr("stroke", d3.rgb(0, 0, 0))
+                .attr("stroke-dasharray", "5,5");
+                await nextButton(); if(this.finished) {return;}
 
+                updateInfo("Pick one of the points on <b><span style=\"color:" + layer.getColor() + "\">L<SUB>"+layerIdx+"<SUB></span></b> that's above the line.  Then, move on either side of it, marking off each point as above the line, until we reach the boundaries.");
+                tempCanvas = this.clearTempCanvas();
+
+                let isAbove = true;
+                let start = lidxAbove;
+                P = Ps[layer.L[lidxAbove]];
+                let dir = 1;
+                let touched = layer.L.map(() => false);
+                while (isAbove && !touched[lidxAbove]) {
+                    touched[lidxAbove] = true;
+                    resultCanvas.append("rect")
+                    .attr("x", P[0]-POINT_BOLD_SIZE).attr("y", P[1]-POINT_BOLD_SIZE)
+                    .attr("width", POINT_BOLD_SIZE*2)
+                    .attr("height", POINT_BOLD_SIZE*2)
+                    .attr("fill", layer.getColor())
+                    .attr("stroke", d3.rgb(0, 0, 0));
+
+                    
+                    await nextButton(); if(this.finished) {return;}
+                    lidxAbove = (lidxAbove+dir+layer.L.length)%layer.L.length;
+                    P = Ps[layer.L[lidxAbove]];
+                    isAbove = isAboveLine(P1, P2, P);
+                    if (!isAbove && dir == 1) {
+                        dir = -1;
+                        lidxAbove = (start+dir+layer.L.length)%layer.L.length;
+                        P = Ps[layer.L[lidxAbove]];
+                        isAbove = isAboveLine(P1, P2, P);
+                        console.log("dir = -1, isAbove = ", isAbove);
+                    }
+                }
+                
+                // Show the pointer from Midx to the point on the next M
+                if (layerIdx < this.layers.length-1) {
+                    updateInfo("Follow the pointer from this point on <b><span style=\"color:" + layer.getColor() + "\">M<SUB>"+layerIdx+"<SUB></span></b> to the point on <b><span style=\"color:" + this.layers[layerIdx+1].getColor() + "\">M<SUB>"+(layerIdx+1)+"<SUB></span></b> to keep the process going.");
+
+                    tempCanvas = this.clearTempCanvas();
+                    let drawArea = tempCanvas.append("g");
+
+                    a = Ps[Midx.layer.L[Midx.idx]];
+                    drawArea.append("circle")
+                    .attr("r", POINT_BOLD_SIZE).attr("fill", Midx.layer.getColor())
+                    .attr("cx", a[0]).attr("cy", a[1]);
+
+                    layer = this.layers[layerIdx+1];
+                    idx = Midx.MIdx;
+                    Midx = layer.M[idx];
+                    b = Ps[Midx.layer.L[Midx.idx]];
+                    drawArea.append("circle")
+                    .attr("r", POINT_BOLD_SIZE).attr("fill", Midx.layer.getColor())
+                    .attr("cx", b[0]).attr("cy", b[1]);
+
+                    drawArea.append("line")
+                    .attr("x1", a[0]).attr("y1", a[1])
+                    .attr("x2", b[0]).attr("y2", b[1])
+                    .attr("stroke", d3.rgb(0, 0, 0))
+                    .attr("stroke-dasharray", "5,5");
+                    await nextButton(); if(this.finished) {return;}
+                }
+                else {
+                    updateInfo("This is the last layer, so we're finished!");
+                    await nextButton(); if(this.finished) {return;}
+                }
+                layerIdx++;
+            }
         }
 
+        document.getElementById("animButton").innerHTML = "Select Another Query Line";
+        await nextButton(); if(this.finished) {return;}
         resultCanvas.remove();
     }
 
@@ -622,5 +715,6 @@ class OnionsAnimation {
         }
         this.layers = [];
         this.tempCanvas.remove();
+        this.resultCanvas.remove();
     }
 }
