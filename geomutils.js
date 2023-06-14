@@ -576,7 +576,7 @@ class OnionsAnimation {
         //////////////// Step 3: Show a few examples of pointers //////////////// 
         if (this.layers.length > 1) {
             updateInfo("To allow quick searching later, we also store pointers from each point <b>p</b> in <b>M<SUB>i</SUB></b> to the points in <b>L<SUB>i</SUB></b> and <b>M<SUB>i+1</SUB></b> with the greatest slopes less than or equal <b>p</b>.  Click <code>Next step</code> to see a few examples of pointers from points in <b><span style=\"color:" + this.layers[0].getColor() + "\">M<SUB>0<SUB></span></b> to points in <b><span style=\"color:" + this.layers[0].getColor() + "\">L<SUB>0<SUB></span></b> and points in <b><span style=\"color:" + this.layers[1].getColor() + "\">M<SUB>1<SUB></span></b>");
-            if (!fastForward.checked || true) {await nextButton(); if(this.finished) {return;}}
+            if (!fastForward.checked) {await nextButton(); if(this.finished) {return;}}
 
             const L0 = this.layers[0];
             const L1 = this.layers[1];
@@ -584,7 +584,7 @@ class OnionsAnimation {
 
             // Fly over L0 and M1
             // Pull this M out to look at it
-            if (!fastForward.checked || true) {
+            if (!fastForward.checked) {
                 L0.LCanvas.transition().duration(moveTime)
                 .attr("transform", "translate(" + halfWidth + ",0)");
                 await new Promise(resolve => {setTimeout(() => resolve(), moveTime)});
@@ -594,7 +594,7 @@ class OnionsAnimation {
                 await new Promise(resolve => {setTimeout(() => resolve(), moveTime)});
             }
             const nExamples = Math.min(5, L0.M.length);
-            if (!fastForward.checked || true) {await nextButton(); if(this.finished) {return;}}
+            if (!fastForward.checked) {await nextButton(); if(this.finished) {return;}}
             // Pick a few random points to look at in M0
             let shuffleIdx = L0.M.map((_, i) => {return {"i":i, "v":Math.random()};});
             shuffleIdx.sort((a, b) => a.v - b.v);
@@ -657,9 +657,9 @@ class OnionsAnimation {
                 .attr("x2", x32[0]+halfWidth).attr("y2", x32[1])
                 .attr("stroke", color).attr("stroke-width", BOLD_STROKE_WIDTH);
 
-                if (!fastForward.checked || true) {await nextButton(); if(this.finished) {return;}}
+                if (!fastForward.checked) {await nextButton(); if(this.finished) {return;}}
             }
-            if (!fastForward.checked || true) {
+            if (!fastForward.checked) {
                 // Put L0 and M1 back
                 L0.LCanvas.transition().duration(moveTime)
                 .attr("transform", "translate(0,0)");
@@ -688,7 +688,7 @@ class OnionsAnimation {
         const Ps = this.canvas.getPoints();
         let layerIdx = 0;
 
-        let info = "First, do binary search to find the point on <b><span style=\"color:" + this.layers[layerIdx].getColor() + "\">M<SUB>0<SUB></span></b> with the greatest slope less than or equal to the slope of the Godzilla line.  This takes <b>O(log N)</b> time for <b>N</b> overall points in the onion.";
+        let info = "First, do a circular binary search to find the point on <b><span style=\"color:" + this.layers[layerIdx].getColor() + "\">M<SUB>0<SUB></span></b> with the greatest slope less than or equal to the slope of the Godzilla line.  This takes <b>O(log N)</b> time for <b>N</b> overall points in the onion.";
         updateInfo(info);
         let layer = this.layers[layerIdx];
         // Find the closest slope in M0 to querySlope
