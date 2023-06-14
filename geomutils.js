@@ -738,7 +738,7 @@ class OnionsAnimation {
                     }
 
                     let info = "Find the point in <b><span style=\"color:" + layer.getColor() + "\">M<SUB>"+layerIdx+"<SUB></span></b> on either side of this point with the greatest slope not exceeding the slope of the query line.";
-                    info += " This point is guaranteed to have the greatest such slope in <b><span style=\"color:" + layer.getColor() + "\">M<SUB>"+layerIdx+"<SUB></span></b>.";
+                    //info += " This point is guaranteed to have the greatest such slope in <b><span style=\"color:" + layer.getColor() + "\">M<SUB>"+layerIdx+"<SUB></span></b>.";
                     if (layerIdx == 1) {
                         info += " <b>Note that, unlike the initial binary search, this is a constant time operation</b>";
                     }
