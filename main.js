@@ -32,7 +32,7 @@ async function queryStarter() {
     if (Ps.length == 2) {
         animationButton.innerHTML = "Next step";
         canvas.freezeLineSelection();
-        await onionsAnim.query(Ps[0], Ps[1]);
+        await onionsAnim.query(Ps[0], Ps[1], fastForward);
         info.innerHTML = "Click two points to select another Godzilla line!";
         animationButton.innerHTML = "Query Onion";
         canvas.selectingLine = true;

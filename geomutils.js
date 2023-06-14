@@ -325,8 +325,7 @@ class OnionsAnimation {
     /**
      * Walk through the preprocessing steps to setup the onion layers
      * @param {boolean} fastForward A checkbox DOM element. 
-     * If checked, just go through all of the preprocessing steps 
-     * without waiting for user input
+     * If checked, go through all of the preprocessing steps without waiting for user input
      * @returns 
      */
     async makeOnions(fastForward) {
@@ -566,8 +565,10 @@ class OnionsAnimation {
      * Query the onion structure to see which points are above the line ab
      * @param {list of [x, y]} P1 First point on the line
      * @param {list of [x, y]} P2 Second point on the line
+     * @param {boolean} fastForward A checkbox DOM element. 
+     * If checked, go through all of the preprocessing steps without waiting for user input
      */
-    async query(P1, P2) {
+    async query(P1, P2, fastForward) {
         let resultCanvas = this.clearResultCanvas(); // Canvas for marking points above line
         let tempCanvas = this.clearTempCanvas();
         const Ps = this.canvas.getPoints();
@@ -601,7 +602,7 @@ class OnionsAnimation {
             if (!foundAbove) {
                 updateInfo("No point was found above this line on <b><span style=\"color:" + this.layers[layerIdx].getColor() + "\">M<SUB>"+layerIdx+"<SUB></span></b>, so no points are above the line, and we're finished!");
                 this.clearTempCanvas();
-                await nextButton(); if(this.finished) {return;}
+                if (!fastForward.checked) { await nextButton(); if(this.finished) {return;} }
                 layerIdx = this.layers.length; // Do this to break out of the loop
             }
             else {
@@ -614,7 +615,8 @@ class OnionsAnimation {
                 drawArea.append("circle")
                 .attr("r", POINT_BOLD_SIZE).attr("fill", Midx.layer.getColor())
                 .attr("cx", P[0]).attr("cy", P[1]);
-                await nextButton(); if(this.finished) {return;}
+                if (!fastForward.checked) { await nextButton(); if(this.finished) {return;} }
+                
                 // Show the associated point in Li as well as the points next to it
                 let info = "Follow the pointer from this point on <b><span style=\"color:" + layer.getColor() + "\">M<SUB>"+layerIdx+"<SUB></span></b> to a point in <b><span style=\"color:" + layer.getColor() + "\">L<SUB>"+layerIdx+"<SUB></span></b>.  Check this point and the point on either side of it on <b><span style=\"color:" + layer.getColor() + "\">L<SUB>"+layerIdx+"<SUB></span></b> to see if they are above the line.";
                 if (layerIdx == 0) {
@@ -640,7 +642,7 @@ class OnionsAnimation {
                 .attr("x2", b[0]).attr("y2", b[1])
                 .attr("stroke", d3.rgb(0, 0, 0))
                 .attr("stroke-dasharray", "5,5");
-                await nextButton(); if(this.finished) {return;}
+                if (!fastForward.checked) { await nextButton(); if(this.finished) {return;} }
 
                 updateInfo("Pick one of the points on <b><span style=\"color:" + layer.getColor() + "\">L<SUB>"+layerIdx+"<SUB></span></b> that's above the line.  Then, move on either side of it, marking off each point as above the line, until we reach the boundaries.");
                 tempCanvas = this.clearTempCanvas();
@@ -660,7 +662,7 @@ class OnionsAnimation {
                     .attr("stroke", d3.rgb(0, 0, 0));
 
                     
-                    await nextButton(); if(this.finished) {return;}
+                    if (!fastForward.checked) { await nextButton(); if(this.finished) {return;} }
                     lidxAbove = (lidxAbove+dir+layer.L.length)%layer.L.length;
                     P = Ps[layer.L[lidxAbove]];
                     isAbove = isAboveLine(P1, P2, P);
@@ -697,7 +699,7 @@ class OnionsAnimation {
                     .attr("x2", b[0]).attr("y2", b[1])
                     .attr("stroke", d3.rgb(0, 0, 0))
                     .attr("stroke-dasharray", "5,5");
-                    await nextButton(); if(this.finished) {return;}
+                    if (!fastForward.checked) { await nextButton(); if(this.finished) {return;} }
                 }
                 else {
                     updateInfo("This is the last layer, so we're finished!");
@@ -708,7 +710,7 @@ class OnionsAnimation {
         }
 
         document.getElementById("animButton").innerHTML = "Select Another Query Line";
-        await nextButton(); if(this.finished) {return;}
+        if (!fastForward.checked) { await nextButton(); if(this.finished) {return;} }
         resultCanvas.remove();
     }
 
