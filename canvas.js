@@ -19,6 +19,7 @@ function getSVGPoints(svgCollection) {
 class Canvas2D {
 	constructor() {
 		const container = document.getElementById("Canvas2DContainer");
+		container.addEventListener("contextmenu", e => e.preventDefault());
 		// Fix the width and height up front
 		this.width = window.innerWidth * 0.9;
 		this.height = window.innerHeight * 0.75;

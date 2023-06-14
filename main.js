@@ -19,6 +19,9 @@ async function animationStarter() {
             canvas.selectingLine = true;
             canvas.unfreezeLineSelection();
             animationButton.addEventListener("click", queryStarter, {"once":true});
+            // For debugging
+            //canvas.addPoint([ 153, 654 ]);
+            //canvas.addPoint([ 400, 190 ]);
         }
     }
     else {
