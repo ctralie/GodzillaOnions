@@ -324,20 +324,18 @@ class OnionsAnimation {
 
     /**
      * Walk through the preprocessing steps to setup the onion layers
-     * @param {boolean} fastForward If true, just go through all of the 
-     * preprocessing steps without waiting for user input
+     * @param {boolean} fastForward A checkbox DOM element. 
+     * If checked, just go through all of the preprocessing steps 
+     * without waiting for user input
      * @returns 
      */
     async makeOnions(fastForward) {
-        if (fastForward === undefined) {
-            fastForward = false;
-        }
         const moveTime = this.moveTime;
         const halfWidth = this.canvas.width/2;
         let tempCanvas = this.clearTempCanvas();
         //////////////// Step 1: Setup the onion layers //////////////// 
         updateInfo("Okay let's do it!  The first step is to compute each layer of the onion by computing the convex hulls from the outside to the inside.");
-        if (!fastForward) {await nextButton(); if(this.finished) {return;}}
+        if (!fastForward.checked) {await nextButton(); if(this.finished) {return;}}
         let layersIdxs = getOnions(this.canvas.getPoints());
         this.layers = [];
         const Ps = this.canvas.getPoints();
@@ -347,13 +345,13 @@ class OnionsAnimation {
             let info = "Here's layer <b><span style=\"color:" + layer.getColor() + "\">";
             info += "L<SUB>" + i + "<SUB></span></b>";
             updateInfo(info);
-            if (!fastForward) {await nextButton(); if(this.finished) {return;}}
+            if (!fastForward.checked) {await nextButton(); if(this.finished) {return;}}
         }
 
         ////////////////  Step 2: Setup the M layers from the inside out //////////////// 
         updateInfo("Now we need to compute the \"helper layers\" <b>M<SUB>i</SUB></b> for each layer.  This is where <a href = \"https://en.wikipedia.org/wiki/Fractional_cascading\">fractional cascading</a> comes in; each helper layer <b>M<SUB>i</SUB></b> will be a merging of the layer <b>L<SUB>i</b> and <i>every other element</i> of <b>M<SUB>i-1</SUB></b>, sorted by slope");
         if (this.layers.length > 0) {
-            if (!fastForward) {await nextButton(); if(this.finished) {return;}}
+            if (!fastForward.checked) {await nextButton(); if(this.finished) {return;}}
 
             // Step 2a: Setup the first M layer
             let idx = this.layers.length-1;
@@ -368,10 +366,10 @@ class OnionsAnimation {
             this.layers[idx].setM(M, inner.LSlopes);
 
             // Pull this M out to look at it
-            if (!fastForward) {
+            if (!fastForward.checked) {
                 this.layers[idx].MCanvas.transition().duration(moveTime)
                 .attr("transform", "translate(" + halfWidth + ",0)");
-                if (!fastForward) {await nextButton(); if(this.finished) {return;}}
+                if (!fastForward.checked) {await nextButton(); if(this.finished) {return;}}
                 // Put this M back
                 this.layers[idx].MCanvas.transition().duration(moveTime)
                 .attr("transform", "translate(0,0)");
@@ -398,7 +396,7 @@ class OnionsAnimation {
                 // Bold M_{i+1} and L_i to show they're about to be active
                 this.layers[idx].LCanvas.selectAll("line").attr("stroke-width", BOLD_STROKE_WIDTH);
                 this.layers[idx+1].MCanvas.selectAll("line").attr("stroke-width", BOLD_STROKE_WIDTH);
-                if (!fastForward) {await nextButton(); if(this.finished) {return;}}
+                if (!fastForward.checked) {await nextButton(); if(this.finished) {return;}}
                 
                 // Take every other element from M_{i+1} and merge with L_i
                 let M = this.layers[idx].L.map((_, i)=>{return {"layer":this.layers[idx], "idx":i, "LIdx":i, "MIdx":0};});
@@ -422,7 +420,7 @@ class OnionsAnimation {
                 }
                 
                 // Show each sorted line segment flying over one by one
-                if (!fastForward) {
+                if (!fastForward.checked) {
                     tempCanvas = this.clearTempCanvas();
                     for (let k = 0; k < M.length; k++) {
                         let drawArea = tempCanvas.append("g");
@@ -448,8 +446,8 @@ class OnionsAnimation {
     
                     }
                 }
-                if (!fastForward) {await nextButton(); if(this.finished) {return;}}
-                if (!fastForward) {
+                if (!fastForward.checked) {await nextButton(); if(this.finished) {return;}}
+                if (!fastForward.checked) {
                     tempCanvas.transition().duration(moveTime)
                     .attr("transform", "translate("+-halfWidth + ",0)");
                     await new Promise(resolve => {setTimeout(() => resolve(), moveTime)});
@@ -577,7 +575,7 @@ class OnionsAnimation {
         let querySlope = Math.atan2(diff[1], diff[0]);
         let layerIdx = 0;
 
-        let info = "First, do binary search to find the point on <b><span style=\"color:" + this.layers[layerIdx].getColor() + "\">M<SUB>0<SUB></span></b> with a slope closest to the slope of the Godzilla line.  This takes <b>O(log N)</b> time for <b>N</b> overall points in the onion.";
+        let info = "First, do binary search to find the point on <b><span style=\"color:" + this.layers[layerIdx].getColor() + "\">M<SUB>0<SUB></span></b> with the greatest slope less than or equal to the slope of the Godzilla line.  This takes <b>O(log N)</b> time for <b>N</b> overall points in the onion.";
         updateInfo(info);
         let layer = this.layers[layerIdx];
         // Use binary search to find the closest slope in M0 to querySlope

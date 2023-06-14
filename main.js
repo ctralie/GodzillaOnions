@@ -2,6 +2,7 @@ let canvas = new Canvas2D();
 const info = document.getElementById("info");
 let onionsAnim = new OnionsAnimation(canvas);
 const animationButton = document.getElementById("animButton");
+const fastForward = document.getElementById("fastForward");
 
 function resetDirections() {
     document.getElementById("info").innerHTML = "Select some points in the left box to get started!";
@@ -11,7 +12,6 @@ async function animationStarter() {
     if (canvas.getPoints().length > 0) {
         animationButton.innerHTML = "Next step";
         canvas.freeze();
-        let fastForward = false;
         await onionsAnim.makeOnions(fastForward);
         if (onionsAnim.preprocessingFinished) {
             info.innerHTML = "Now that the preprocessing is finished, click two points to select a Godzilla line!";
