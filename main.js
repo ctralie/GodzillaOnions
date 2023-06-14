@@ -36,11 +36,13 @@ async function queryStarter() {
         animationButton.innerHTML = "Next step";
         canvas.freezeLineSelection();
         await onionsAnim.query(Ps[0], Ps[1], fastForward);
-        info.innerHTML = "Click two points to select another Godzilla line!";
-        animationButton.innerHTML = "Query Onion";
-        canvas.selectingLine = true;
-        canvas.unfreezeLineSelection();
-        animationButton.addEventListener("click", queryStarter, {"once":true});
+        if (canvas.selectingLine) {
+            info.innerHTML = "Click two points to select another Godzilla line!";
+            animationButton.innerHTML = "Query Onion";
+            canvas.selectingLine = true;
+            canvas.unfreezeLineSelection();
+            animationButton.addEventListener("click", queryStarter, {"once":true});
+        }
     }
     else {
         info.innerHTML = "<b>Need to select two points for the Godzilla line!</b>";
