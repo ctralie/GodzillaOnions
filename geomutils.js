@@ -91,6 +91,23 @@ function getOnions(Ps) {
 }
 
 /**
+ * Return the points on a line segment in a particular layer
+ * NOTE: The slope is done in clockwise order instead of 
+ * counterclockwise order since the svg is flipped, but we 
+ * want it to look canonically CCW
+ * 
+ * @param {list of [x, y]} Ps Full list of points
+ * @param {list of int} L List of indices into Ps of points on this layer
+ * @param {int} idx Index of point in this layer
+ * @returns [a, b]
+ */
+function getSegment(Ps, L, idx) {
+    const P1 = Ps[L[idx]];
+    const P2 = Ps[(L[(idx+1)%L.length])];
+    return [P1, P2];
+}
+
+/**
  * Return the slope of a point in a particular layer
  * NOTE: The slope is done in clockwise order instead of 
  * counterclockwise order since the svg is flipped, but we 
@@ -101,13 +118,55 @@ function getOnions(Ps) {
  * @param {int} idx Index of point in this layer
  * @returns Slope between layer[idx] and layer[(idx+1)%layer length]
  */
-function getSlope(Ps, L, idx) {
+function getSlopeCW(Ps, L, idx) {
     const P1 = Ps[L[idx]];
     const P2 = Ps[(L[(idx+1)%L.length])];
     let diff = [P1[0]-P2[0], P2[1]-P1[1]];
     let ret = Math.atan2(diff[1], diff[0]);
     return ret;
 }
+
+
+/**
+ * Run CCW between the vectors ab and cd
+ * @param {list} a First point on first line
+ * @param {list} b Second point on first line
+ * @param {list} c First point on second line
+ * @param {list} d Second point on second line
+ */
+function ccwLines(a, b, c, d) {
+    const ax = b[0] - a[0];
+    const ay = b[1] - a[1];
+    const bx = d[0] - c[0];
+    const by = d[1] - c[1];
+    return Math.sign(ax*by - ay*bx); 
+}
+
+/**
+ * Return the angle between two lines
+ * @param {list} a First point on first line
+ * @param {list} b Second point on first line
+ * @param {list} c First point on second line
+ * @param {list} d Second point on second line
+ */
+function getAngle(a, b, c, d) {
+    let ax = b[0] - a[0];
+    let ay = b[1] - a[1];
+    let bx = d[0] - c[0];
+    let by = d[1] - c[1];
+    const aMag = Math.sqrt(ax*ax + ay*ay);
+    const bMag = Math.sqrt(bx*bx + by*by);
+    let dot = ax*bx + ay*by;
+    let arg = dot/(aMag*bMag);
+    if (arg < -1) {
+        arg = -1;
+    }
+    if (arg > 1) {
+        arg = 1;
+    }
+    return Math.acos(arg); 
+}
+
 
 /**
  * Return true if the point p is above line line from P1 to P2,
@@ -125,6 +184,26 @@ function isAboveLine(P1, P2, p) {
     const vx = P2[0]-P1[0];
     const vy = P2[1]-P1[1];
     return vy*(P1[0]-x) + vx*(y-P1[1]) > 0;
+}
+
+/**
+ * Return the signed distance of the point p from a line
+ * 
+ * @param {[x, y]} P1 First point on line
+ * @param {[x, y]} P2 Second point on line
+ * @param {[x, y]} p Query point
+ * 
+ * @returns Signed distance of p from the line P1P2
+ */
+function signedDist(P1, P2, p) {
+    const x = p[0];
+    const y = p[1];
+    let vx = P2[0]-P1[0];
+    let vy = P2[1]-P1[1];
+    const mag = Math.sqrt(vx*vx + vy*vy);
+    vx = vx/mag;
+    vy = vy/mag;
+    return vy*(P1[0]-x) + vx*(y-P1[1]);
 }
 
 //////////////////////////////////////////////////////////
@@ -187,13 +266,14 @@ class OnionLayer {
         this.Ps = Ps;
         this.idx = idx;
         this.N = N;
-        // Sort L with getSlope(Ps, L, idx)
-        let LSlopes = L.map((idx, i) => {
-            return {"idx":idx, "slope":getSlope(Ps, L, i)};
+        // Sort L with getSlopeCW(Ps, L, idx)
+        let LAux = L.map((idx, i) => {
+            return {"idx":idx, "slope":getSlopeCW(Ps, L, i), "segment":getSegment(Ps, L, i)};
         });
-        LSlopes.sort((a, b)=> a.slope - b.slope);
-        this.L = LSlopes.map(v => v.idx);
-        this.LSlopes = LSlopes.map(v => v.slope);
+        LAux.sort((a, b)=> a.slope - b.slope);
+        this.L = LAux.map(v => v.idx);
+        this.LSlopes = LAux.map(v => v.slope);
+        this.LSegments = LAux.map(v => v.segment);
         this.initPointsLines();
         this.drawL();
         this.finished = false;
@@ -257,13 +337,17 @@ class OnionLayer {
      * LIdx: Pointer to the nearest slope index in the L layer associated to this M
      * MIdx: Pointer to the nearest slope index in the M layer one above this M
      * 
-     * @param {list of float} Slopes of each point in M with respect to the following
+     * @param {list of float} MSlopes of each point in M with respect to the following
      * point in the layer it's a part of
      * 
+     * @param {list of [[x1, y1], [x2, y2]]} MSegments List of segments corresponding
+     * to each part of M
+     * 
      */
-    setM(M, MSlopes) {
+    setM(M, MSlopes, MSegments) {
         this.M = M;
         this.MSlopes = MSlopes;
+        this.MSegments = MSegments;
         drawM(this, M, this.MCanvas);
     }
 }
@@ -291,6 +375,36 @@ function binarySearch(arr, target) {
     }
     return low;
 }
+
+/**
+ * Cheat and do a linear search to find the index
+ * of the line segment L in arr so that CCW(L, target) <= 0
+ * and getAngle(L, target) is as small as possible
+ * (NOTE: Can also implement circular binary search, but this is
+ * quicker to code and less error prone for now)
+ * 
+ * @param {list of [x, y]} arr List of line segments
+ * @param {[x, y]} target Target line segment
+ */
+function circularCWSearch(arr, target) {
+    let minIdx = 0;
+    let smallestAngle = 2*Math.PI;
+    const c = target[0];
+    const d = target[1];
+    for (let i = 0; i < arr.length; i++) {
+        const a = arr[i][0];
+        const b = arr[i][1];
+        if (ccwLines(a, b, c, d) <= 0) {
+            const angle = getAngle(a, b, c, d);
+            if (angle < smallestAngle) {
+                smallestAngle = angle;
+                minIdx = i;
+            }
+        }
+    }
+    return minIdx;
+}
+
 
 
 class OnionsAnimation {
@@ -362,7 +476,7 @@ class OnionsAnimation {
 
             const inner = this.layers[idx];
             let M = inner.L.map((_, i)=>{return {"layer":inner, "idx":i, "LIdx":i, "MIdx":0};});
-            this.layers[idx].setM(M, inner.LSlopes);
+            this.layers[idx].setM(M, inner.LSlopes, inner.LSegments);
 
             // Pull this M out to look at it
             if (!fastForward.checked) {
@@ -408,14 +522,16 @@ class OnionsAnimation {
                     M.push(data);
                 }
                 // Now sort by slope (cheating a little bit since this could be done with a linear merge step)
-                M = M.map(v => {return {"v":v, "slope":getSlope(Ps, v.layer.L, v.idx)}});
-                M.sort((a, b)=> a.slope - b.slope);
-                let MSlopes = M.map(v => v.slope);
-                M = M.map(v => v.v);
+                let MAux = M.map(v => {return {"v":v, "slope":getSlopeCW(Ps, v.layer.L, v.idx),
+                                                "segment":getSegment(Ps, v.layer.L, v.idx)}});
+                MAux.sort((a, b)=> a.slope - b.slope);
+                let MSlopes = MAux.map(v => v.slope);
+                let MSegments = MAux.map(v => v.segment);
+                M = MAux.map(v => v.v);
                 // Update indices into L_i and M_{i+1}
                 for (let k = 0; k < M.length; k++) {
-                    M[k].LIdx = binarySearch(this.layers[idx].LSlopes,   MSlopes[k]);
-                    M[k].MIdx = binarySearch(this.layers[idx+1].MSlopes, MSlopes[k]);
+                    M[k].LIdx = circularCWSearch(this.layers[idx].LSegments, MSegments[k]);
+                    M[k].MIdx = circularCWSearch(this.layers[idx+1].MSegments, MSegments[k]);
                 }
                 
                 // Show each sorted line segment flying over one by one
@@ -423,12 +539,10 @@ class OnionsAnimation {
                     tempCanvas = this.clearTempCanvas();
                     for (let k = 0; k < M.length; k++) {
                         let drawArea = tempCanvas.append("g");
-    
-                        const layer = M[k].layer;
-                        const idx = M[k].idx;
-                        const P1 = Ps[layer.L[idx]];
-                        const P2 = Ps[(layer.L[(idx+1)%layer.L.length])];
-                        let color = d3.rgb(layer.getColor());
+
+                        const P1 = MSegments[k][0];
+                        const P2 = MSegments[k][1];
+                        let color = d3.rgb(M[k].layer.getColor());
     
                         drawArea.append("circle")
                         .attr("r", POINT_SIZE).attr("fill", color)
@@ -452,7 +566,7 @@ class OnionsAnimation {
                     await new Promise(resolve => {setTimeout(() => resolve(), moveTime)});
                     tempCanvas.remove();
                 }
-                this.layers[idx].setM(M, MSlopes);
+                this.layers[idx].setM(M, MSlopes, MSegments);
                 // Unbold Li and M_{i+1}
                 this.layers[idx].LCanvas.selectAll("line").attr("stroke-width", DEFAULT_STROKE_WIDTH);
                 this.layers[idx+1].MCanvas.selectAll("line").attr("stroke-width", DEFAULT_STROKE_WIDTH);
@@ -462,7 +576,7 @@ class OnionsAnimation {
         //////////////// Step 3: Show a few examples of pointers //////////////// 
         if (this.layers.length > 1) {
             updateInfo("To allow quick searching later, we also store pointers from each point <b>p</b> in <b>M<SUB>i</SUB></b> to the points in <b>L<SUB>i</SUB></b> and <b>M<SUB>i+1</SUB></b> with the greatest slopes less than or equal <b>p</b>.  Click <code>Next step</code> to see a few examples of pointers from points in <b><span style=\"color:" + this.layers[0].getColor() + "\">M<SUB>0<SUB></span></b> to points in <b><span style=\"color:" + this.layers[0].getColor() + "\">L<SUB>0<SUB></span></b> and points in <b><span style=\"color:" + this.layers[1].getColor() + "\">M<SUB>1<SUB></span></b>");
-            if (!fastForward) {await nextButton(); if(this.finished) {return;}}
+            if (!fastForward.checked || true) {await nextButton(); if(this.finished) {return;}}
 
             const L0 = this.layers[0];
             const L1 = this.layers[1];
@@ -470,7 +584,7 @@ class OnionsAnimation {
 
             // Fly over L0 and M1
             // Pull this M out to look at it
-            if (!fastForward) {
+            if (!fastForward.checked || true) {
                 L0.LCanvas.transition().duration(moveTime)
                 .attr("transform", "translate(" + halfWidth + ",0)");
                 await new Promise(resolve => {setTimeout(() => resolve(), moveTime)});
@@ -480,7 +594,7 @@ class OnionsAnimation {
                 await new Promise(resolve => {setTimeout(() => resolve(), moveTime)});
             }
             const nExamples = Math.min(5, L0.M.length);
-            if (!fastForward) {await nextButton(); if(this.finished) {return;}}
+            if (!fastForward.checked || true) {await nextButton(); if(this.finished) {return;}}
             // Pick a few random points to look at in M0
             let shuffleIdx = L0.M.map((_, i) => {return {"i":i, "v":Math.random()};});
             shuffleIdx.sort((a, b) => a.v - b.v);
@@ -543,9 +657,9 @@ class OnionsAnimation {
                 .attr("x2", x32[0]+halfWidth).attr("y2", x32[1])
                 .attr("stroke", color).attr("stroke-width", BOLD_STROKE_WIDTH);
 
-                if (!fastForward) {await nextButton(); if(this.finished) {return;}}
+                if (!fastForward.checked || true) {await nextButton(); if(this.finished) {return;}}
             }
-            if (!fastForward) {
+            if (!fastForward.checked || true) {
                 // Put L0 and M1 back
                 L0.LCanvas.transition().duration(moveTime)
                 .attr("transform", "translate(0,0)");
@@ -572,15 +686,13 @@ class OnionsAnimation {
         let resultCanvas = this.clearResultCanvas(); // Canvas for marking points above line
         let tempCanvas = this.clearTempCanvas();
         const Ps = this.canvas.getPoints();
-        let diff = [P1[0]-P2[0], P2[1]-P1[1]];
-        let querySlope = Math.atan2(diff[1], diff[0]);
         let layerIdx = 0;
 
         let info = "First, do binary search to find the point on <b><span style=\"color:" + this.layers[layerIdx].getColor() + "\">M<SUB>0<SUB></span></b> with the greatest slope less than or equal to the slope of the Godzilla line.  This takes <b>O(log N)</b> time for <b>N</b> overall points in the onion.";
         updateInfo(info);
         let layer = this.layers[layerIdx];
-        // Use binary search to find the closest slope in M0 to querySlope
-        let idx = binarySearch(layer.MSlopes, querySlope);
+        // Find the closest slope in M0 to querySlope
+        let idx = circularCWSearch(layer.MSegments, [P1, P2]);
 
         while (layerIdx < this.layers.length) {
             layer = this.layers[layerIdx];
